@@ -1,0 +1,504 @@
+# -*- coding: utf-8 -*-
+"""
+Модуль для работы с курсом "Разгон"
+"""
+
+import logging
+import os
+from datetime import datetime
+from typing import Optional
+from aiogram import Bot
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
+
+import config
+import messages
+from database import (
+    get_global_course_state,
+    update_global_course_state,
+    start_course_for_users,
+    get_task_by_number,
+    get_users_by_current_task,
+    get_all_registered_users,
+    add_penalty,
+    get_user_by_telegram_id,
+    get_user_course_state,
+    CourseState,
+    mark_task_completed,
+    get_user_current_task,
+    complete_course_for_user,
+    get_user_penalties
+)
+from monitoring import monitor
+
+logger = logging.getLogger(__name__)
+
+
+def get_task_keyboard() -> InlineKeyboardMarkup:
+    """Создает клавиатуру с кнопками для задания"""
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(
+                text=messages.BTN_WRITE_POST,
+                callback_data="write_post"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=messages.BTN_SUBMIT_TASK,
+                callback_data="submit_task"
+            )
+        ]
+    ])
+    return keyboard
+
+
+async def start_course(bot: Bot, admin_id: int) -> str:
+    """
+    Запускает курс
+    
+    Args:
+        bot: Экземпляр бота
+        admin_id: ID админа, запустившего курс
+        
+    Returns:
+        Сообщение о результате
+    """
+    try:
+        # Проверяем, не запущен ли курс уже
+        course_state = await get_global_course_state()
+        
+        if course_state and course_state.get("is_active"):
+            current_day = course_state.get("current_day", 0)
+            return messages.MSG_COURSE_ALREADY_ACTIVE.format(current_day=current_day)
+        
+        # Запускаем курс
+        now = datetime.now().isoformat()
+        await update_global_course_state(is_active=True, current_day=1, start_date=now)
+        
+        # Обновляем состояние пользователей
+        await start_course_for_users()
+        
+        # Отправляем первое задание сразу
+        await send_task_to_users(bot, 1)
+        
+        logger.info(f"Курс запущен администратором {admin_id}")
+        
+        return messages.MSG_COURSE_STARTED
+        
+    except Exception as e:
+        logger.error(f"Ошибка при запуске курса: {e}")
+        return f"❌ Ошибка при запуске курса: {e}"
+
+
+async def send_task_to_users(bot: Bot, task_number: int):
+    """
+    Отправляет задание пользователям
+    
+    Args:
+        bot: Экземпляр бота
+        task_number: Номер задания (1-14)
+    """
+    try:
+        # Получаем задание из БД (из таблицы digest_day_X)
+        task = await get_task_by_number(task_number)
+        
+        if not task:
+            logger.error(f"Задание {task_number} не найдено в БД (таблица digest_day_{task_number})!")
+            return
+        
+        # Получаем ВСЕХ активных пользователей в курсе (не только на текущем задании!)
+        from database import get_all_active_users_in_course
+        users = await get_all_active_users_in_course()
+        
+        if not users:
+            logger.warning(f"Нет пользователей для задания {task_number}")
+            return
+        
+        # Получаем текст задания из колонки "zadanie"
+        zadanie_text = task.get("zadanie", "")
+        
+        # Формируем сообщение
+        message_text = messages.MSG_NEW_TASK.format(
+            day=task_number,
+            zadanie=zadanie_text
+        )
+        
+        # Клавиатура
+        keyboard = get_task_keyboard()
+        
+        # Путь к картинке задания
+        image_path = f"{config.TASK_IMAGE_DIR}/task_{task_number}.jpg"
+        
+        # Отправляем каждому пользователю
+        success_count = 0
+        failed_count = 0
+        
+        for user in users:
+            telegram_id = user.get("telegram_id")
+            if not telegram_id:
+                continue
+            
+            try:
+                # Отправляем картинку с заданием
+                if os.path.exists(image_path):
+                    photo = FSInputFile(image_path)
+                    await bot.send_photo(
+                        chat_id=telegram_id,
+                        photo=photo,
+                        caption=message_text,
+                        reply_markup=keyboard
+                    )
+                else:
+                    # Если картинки нет, отправляем просто текст
+                    logger.warning(f"Картинка не найдена: {image_path}")
+                    await bot.send_message(
+                        chat_id=telegram_id,
+                        text=message_text,
+                        reply_markup=keyboard
+                    )
+                
+                success_count += 1
+                logger.info(f"Задание {task_number} отправлено пользователю {telegram_id}")
+                
+            except Exception as e:
+                failed_count += 1
+                # Если пользователь заблокировал бота
+                if "bot was blocked" in str(e).lower() or "user is deactivated" in str(e).lower() or "chat not found" in str(e).lower():
+                    logger.warning(f"Пользователь {telegram_id} заблокировал бота")
+                    from database import mark_user_as_blocked
+                    await mark_user_as_blocked(telegram_id)
+                else:
+                    logger.error(f"Ошибка при отправке задания пользователю {telegram_id}: {e}")
+        
+        logger.info(f"Задание {task_number} разослано: успешно={success_count}, ошибок={failed_count}")
+        
+        # Отправляем отчет в мониторинг
+        await monitor.report_task_sent(bot, task_number, success_count, failed_count)
+        
+    except Exception as e:
+        logger.error(f"Ошибка при рассылке задания: {e}")
+
+
+async def send_reminder(bot: Bot, reminder_type: str):
+    """
+    Отправляет напоминание пользователям
+    
+    Args:
+        bot: Экземпляр бота
+        reminder_type: Тип напоминания (для логирования)
+    """
+    try:
+        # Получаем текущий день курса
+        course_state = await get_global_course_state()
+        
+        if not course_state or not course_state.get("is_active"):
+            return
+        
+        current_day = course_state.get("current_day", 0)
+        
+        if current_day < 1 or current_day > config.COURSE_DAYS:
+            return
+        
+        # Получаем задание из таблицы digest_day_X
+        task = await get_task_by_number(current_day)
+        
+        if not task:
+            logger.error(f"Задание {current_day} не найдено в таблице digest_day_{current_day}!")
+            return
+        
+        # Получаем пользователей, которые еще не выполнили задание
+        # (те, у кого current_task == current_day)
+        users = await get_users_by_current_task(current_day)
+        
+        if not users:
+            logger.info(f"Нет пользователей для напоминания (все выполнили задание {current_day})")
+            return
+        
+        # Вычисляем время до проверки
+        now = datetime.now()
+        check_time_parts = config.CHECK_TIME.split(":")
+        check_hour = int(check_time_parts[0])
+        check_minute = int(check_time_parts[1])
+        
+        time_diff_minutes = (check_hour * 60 + check_minute) - (now.hour * 60 + now.minute)
+        time_left = f"{time_diff_minutes} минут"
+        
+        # Формируем сообщение
+        message_text = messages.MSG_REMINDER.format(
+            day=current_day,
+            time_left=time_left
+        )
+        
+        # Клавиатура
+        keyboard = get_task_keyboard()
+        
+        # Выбираем картинку в зависимости от типа напоминания
+        if reminder_type == "reminder_1":
+            reminder_image = config.REMINDER_1_IMAGE
+        elif reminder_type == "reminder_2":
+            reminder_image = config.REMINDER_2_IMAGE
+        else:
+            reminder_image = config.REMINDER_3_IMAGE
+        
+        # Отправляем каждому
+        success_count = 0
+        failed_count = 0
+        
+        for user in users:
+            telegram_id = user.get("telegram_id")
+            if not telegram_id:
+                continue
+            
+            try:
+                if os.path.exists(reminder_image):
+                    photo = FSInputFile(reminder_image)
+                    await bot.send_photo(
+                        chat_id=telegram_id,
+                        photo=photo,
+                        caption=message_text,
+                        reply_markup=keyboard
+                    )
+                else:
+                    await bot.send_message(
+                        chat_id=telegram_id,
+                        text=message_text,
+                        reply_markup=keyboard
+                    )
+                
+                success_count += 1
+                logger.info(f"Напоминание отправлено пользователю {telegram_id}")
+                
+            except Exception as e:
+                failed_count += 1
+                # Если пользователь заблокировал бота
+                if "bot was blocked" in str(e).lower() or "user is deactivated" in str(e).lower() or "chat not found" in str(e).lower():
+                    logger.warning(f"Пользователь {telegram_id} заблокировал бота")
+                    from database import mark_user_as_blocked
+                    await mark_user_as_blocked(telegram_id)
+                else:
+                    logger.error(f"Ошибка при отправке напоминания пользователю {telegram_id}: {e}")
+        
+        logger.info(f"Напоминание ({reminder_type}) отправлено: успешно={success_count}, ошибок={failed_count}")
+        
+        # Определяем номер и время напоминания для отчета
+        reminder_mapping = {
+            "reminder_1": (1, "8:50"),
+            "reminder_2": (2, "9:20"),
+            "reminder_3": (3, "9:35")
+        }
+        reminder_num, reminder_time = reminder_mapping.get(reminder_type, (1, ""))
+        
+        # Отправляем отчет в мониторинг
+        await monitor.report_reminder_sent(bot, reminder_num, reminder_time, success_count, failed_count)
+        
+    except Exception as e:
+        logger.error(f"Ошибка при отправке напоминаний: {e}")
+
+
+async def check_tasks_completion(bot: Bot):
+    """Проверяет выполнение заданий и выдает штрафы, переводит ВСЕХ пользователей к следующему заданию"""
+    try:
+        # Получаем текущий день курса
+        course_state = await get_global_course_state()
+        
+        if not course_state or not course_state.get("is_active"):
+            return
+        
+        current_day = course_state.get("current_day", 0)
+        
+        if current_day < 1 or current_day > config.COURSE_DAYS:
+            return
+        
+        # Получаем ВСЕХ активных пользователей в курсе
+        from database import get_all_active_users_in_course
+        all_users = await get_all_active_users_in_course()
+        
+        if not all_users:
+            logger.info(f"Нет активных пользователей в курсе")
+            return
+        
+        # Словарь для сбора статистики штрафов: {1: [user_ids], 2: [user_ids], ...}
+        penalties_by_count = {1: [], 2: [], 3: [], 4: []}
+        
+        # Проверяем каждого пользователя
+        for user in all_users:
+            telegram_id = user.get("telegram_id")
+            user_current_task = user.get("current_task", 0)
+            
+            if not telegram_id:
+                continue
+            
+            try:
+                # Если пользователь НЕ сдал задание текущего дня
+                if user_current_task == current_day:
+                    # Добавляем штраф
+                    penalties = await add_penalty(telegram_id)
+                    
+                    logger.info(f"Пользователь {telegram_id} получил штраф. Всего штрафов: {penalties}")
+                    
+                    # Собираем статистику для мониторинга
+                    if penalties <= 4:
+                        penalties_by_count[penalties].append(telegram_id)
+                    else:
+                        penalties_by_count[4].append(telegram_id)
+                    
+                    # Отправляем сообщение о штрафе
+                    await send_penalty_message(bot, telegram_id, penalties)
+                    
+                    # Если 3 штрафа - исключаем из чата
+                    if penalties == 3 and config.COURSE_CHAT_ID:
+                        try:
+                            await bot.ban_chat_member(
+                                chat_id=config.COURSE_CHAT_ID,
+                                user_id=telegram_id
+                            )
+                            logger.info(f"Пользователь {telegram_id} исключен из чата")
+                        except Exception as e:
+                            logger.error(f"Ошибка при исключении из чата: {e}")
+                    
+                    # ВАЖНО: Переводим к следующему заданию (даже если не сдал)
+                    from database import supabase, TABLE_NAME
+                    next_task = current_day + 1
+                    supabase.table(TABLE_NAME).update({
+                        "current_task": next_task
+                    }).eq("telegram_id", telegram_id).execute()
+                    
+                    logger.info(f"Пользователь {telegram_id} переведен на задание {next_task}")
+                
+                # Если пользователь УЖЕ на следующем задании (сдал вовремя)
+                elif user_current_task > current_day:
+                    logger.info(f"Пользователь {telegram_id} уже выполнил задание {current_day}")
+                    # Ничего не делаем
+                
+                # Если пользователь отстает (не должно быть, но на всякий случай)
+                elif user_current_task < current_day:
+                    # Переводим на текущее задание + 1
+                    from database import supabase, TABLE_NAME
+                    next_task = current_day + 1
+                    supabase.table(TABLE_NAME).update({
+                        "current_task": next_task
+                    }).eq("telegram_id", telegram_id).execute()
+                    logger.info(f"Пользователь {telegram_id} отставал, переведен на задание {next_task}")
+                
+            except Exception as e:
+                logger.error(f"Ошибка при обработке пользователя {telegram_id}: {e}")
+        
+        logger.info(f"Проверка выполнения заданий завершена. Всего пользователей обработано: {len(all_users)}")
+        
+        # Отправляем отчет о штрафах в мониторинг
+        await monitor.report_penalties(bot, penalties_by_count)
+        
+    except Exception as e:
+        logger.error(f"Ошибка при проверке выполнения заданий: {e}")
+
+
+async def send_penalty_message(bot: Bot, telegram_id: int, penalties: int):
+    """Отправляет сообщение о штрафе"""
+    try:
+        # Выбираем сообщение в зависимости от количества штрафов
+        if penalties == 1:
+            message_text = messages.MSG_PENALTY_1
+        elif penalties == 2:
+            message_text = messages.MSG_PENALTY_2
+        elif penalties == 3:
+            message_text = messages.MSG_PENALTY_3
+        else:
+            message_text = messages.MSG_PENALTY_4
+        
+        # Используем одну картинку для всех штрафов
+        image_path = config.PENALTY_IMAGE
+        
+        # Отправляем
+        if os.path.exists(image_path):
+            photo = FSInputFile(image_path)
+            await bot.send_photo(
+                chat_id=telegram_id,
+                photo=photo,
+                caption=message_text
+            )
+        else:
+            await bot.send_message(
+                chat_id=telegram_id,
+                text=message_text
+            )
+        
+        logger.info(f"Сообщение о штрафе {penalties} отправлено пользователю {telegram_id}")
+        
+    except Exception as e:
+        # Если пользователь заблокировал бота
+        if "bot was blocked" in str(e).lower() or "user is deactivated" in str(e).lower() or "chat not found" in str(e).lower():
+            logger.warning(f"Пользователь {telegram_id} заблокировал бота при отправке штрафа")
+            from database import mark_user_as_blocked
+            await mark_user_as_blocked(telegram_id)
+        else:
+            logger.error(f"Ошибка при отправке сообщения о штрафе: {e}")
+
+
+async def advance_course_day(bot: Bot):
+    """Переходит к следующему дню курса"""
+    try:
+        course_state = await get_global_course_state()
+        
+        if not course_state or not course_state.get("is_active"):
+            return
+        
+        current_day = course_state.get("current_day", 0)
+        next_day = current_day + 1
+        
+        if next_day > config.COURSE_DAYS:
+            # Курс завершен
+            await update_global_course_state(is_active=False, current_day=config.COURSE_DAYS)
+            logger.info("Курс завершен!")
+            
+            # Отправляем поздравления всем, кто завершил курс
+            await send_completion_messages(bot)
+            
+            return
+        
+        # Переходим к следующему дню
+        await update_global_course_state(is_active=True, current_day=next_day)
+        
+        # Обновляем current_task для всех пользователей в курсе
+        # (те, кто выполнил предыдущее задание, уже имеют current_task = next_day)
+        # Ничего дополнительно делать не нужно
+        
+        logger.info(f"Курс перешел на день {next_day}")
+        
+        # Отправляем новое задание
+        await send_task_to_users(bot, next_day)
+        
+    except Exception as e:
+        logger.error(f"Ошибка при переходе к следующему дню: {e}")
+
+
+async def send_completion_messages(bot: Bot):
+    """Отправляет сообщения о завершении курса"""
+    try:
+        # Получаем всех пользователей, которые завершили курс
+        from database import supabase, TABLE_NAME
+        
+        response = supabase.table(TABLE_NAME).select("*").eq("course_state", CourseState.COMPLETED).execute()
+        users = response.data if response.data else []
+        
+        for user in users:
+            telegram_id = user.get("telegram_id")
+            penalties = user.get("penalties", 0)
+            
+            if not telegram_id:
+                continue
+            
+            try:
+                message_text = messages.MSG_COURSE_COMPLETED.format(penalties=penalties)
+                await bot.send_message(
+                    chat_id=telegram_id,
+                    text=message_text
+                )
+                
+                logger.info(f"Сообщение о завершении отправлено пользователю {telegram_id}")
+                
+            except Exception as e:
+                logger.error(f"Ошибка при отправке сообщения о завершении: {e}")
+        
+    except Exception as e:
+        logger.error(f"Ошибка при отправке сообщений о завершении: {e}")
+
