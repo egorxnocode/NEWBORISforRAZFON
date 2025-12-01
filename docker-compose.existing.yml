@@ -1,0 +1,49 @@
+version: '3.8'
+
+# ============================================================
+# ВАРИАНТ ДЛЯ ПОДКЛЮЧЕНИЯ К СУЩЕСТВУЮЩИМ n8n и Supabase
+# ============================================================
+# Используйте этот файл, если n8n и Supabase уже запущены
+# Команда: docker-compose -f docker-compose.existing.yml up -d
+# ============================================================
+
+services:
+  # ============================================================
+  # TELEGRAM BOT (подключается к существующим сервисам)
+  # ============================================================
+  telegram-bot:
+    build: .
+    container_name: telegram-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      # Медиафайлы
+      - ./media:/app/media
+      # Временные аудио файлы
+      - ./audio_temp:/app/audio_temp
+      # Логи
+      - ./logs:/app/logs
+    ports:
+      # Порт для webhook от n8n
+      - "8080:8080"
+    networks:
+      # Подключаемся к существующей сети где запущены n8n и supabase
+      - existing-network
+    # Healthcheck
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+# ============================================================
+# NETWORKS
+# ============================================================
+networks:
+  existing-network:
+    external: true
+    # Замените на имя вашей существующей Docker сети
+    # Узнать имя сети: docker network ls
+    # name: your-existing-network-name
+

@@ -15,6 +15,8 @@
 ✅ Все тексты вынесены в отдельный файл для легкого редактирования
 ✅ HTML форматирование сообщений
 ✅ Поддержка медиафайлов (видео, картинки)
+✅ Docker контейнеризация (готов к развертыванию)
+✅ Поддержка работы с существующими n8n и Supabase в Docker
 
 📁 СТРУКТУРА ФАЙЛОВ:
 
@@ -28,8 +30,14 @@
 ├── setup_course_database.sql    # SQL для таблиц курса
 ├── test_examples.py             # Примеры для тестирования
 ├── ENV_EXAMPLE.txt              # Пример .env файла
+├── ENV_DOCKER_EXAMPLE.txt       # Пример .env для Docker
 ├── README.md                    # Полная документация (English)
 ├── ИНСТРУКЦИЯ.md                # Подробная инструкция (Русский)
+├── Dockerfile                   # Docker образ бота
+├── docker-compose.yml           # Docker Compose (все сервисы)
+├── docker-compose.existing.yml  # Docker Compose (для существующих n8n/Supabase)
+├── .dockerignore                # Исключения для Docker
+├── DOCKER_DEPLOY.md             # Инструкция по Docker развертыванию
 └── media/                       # Папка для медиафайлов
     ├── welcome_video.mp4
     ├── channel_request.jpg
@@ -38,6 +46,52 @@
     ├── tasks/                   # Картинки заданий (task_1.jpg - task_14.jpg)
     ├── penalties/               # Картинки штрафов
     └── reminders/               # Картинка для напоминаний
+
+🚀 БЫСТРЫЙ ЗАПУСК:
+
+═══════════════════════════════════════════════════════════════
+ВАРИАНТ 1: DOCKER (РЕКОМЕНДУЕТСЯ) 🐳
+═══════════════════════════════════════════════════════════════
+
+Если у вас уже есть n8n и Supabase в Docker.
+
+1️⃣ Клонируйте репозиторий:
+   git clone https://github.com/egorxnocode/NEWBORISforRAZFON.git
+   cd NEWBORISforRAZFON
+
+2️⃣ Создайте .env файл:
+   cp ENV_DOCKER_EXAMPLE.txt .env
+   nano .env
+
+3️⃣ Настройте .env для Docker:
+   BOT_TOKEN=ваш_токен
+   SUPABASE_URL=http://supabase:8000        # Имя контейнера Supabase
+   SUPABASE_KEY=ваш_ключ
+   N8N_WEBHOOK_URL=http://n8n:5678/webhook/generate-post  # Имя контейнера n8n
+   ADMIN_IDS=ваш_telegram_id
+   ...
+
+4️⃣ Узнайте имя Docker сети (где запущены n8n и Supabase):
+   docker network ls
+   docker inspect n8n | grep -A 5 Networks
+
+5️⃣ Отредактируйте docker-compose.existing.yml:
+   nano docker-compose.existing.yml
+   # Замените в секции networks -> name: на имя вашей сети
+
+6️⃣ Загрузите медиафайлы в папку media/
+
+7️⃣ Запустите бота:
+   docker-compose -f docker-compose.existing.yml up -d --build
+
+8️⃣ Проверьте логи:
+   docker logs -f telegram-bot
+
+📖 Подробная инструкция: DOCKER_DEPLOY.md
+
+═══════════════════════════════════════════════════════════════
+ВАРИАНТ 2: ОБЫЧНАЯ УСТАНОВКА (БЕЗ DOCKER) 
+═══════════════════════════════════════════════════════════════
 
 🚀 БЫСТРЫЙ ЗАПУСК (7 ШАГОВ):
 

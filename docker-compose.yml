@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  # ============================================================
+  # TELEGRAM BOT
+  # ============================================================
+  telegram-bot:
+    build: .
+    container_name: telegram-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Переопределяем URLs для Docker сети
+      - SUPABASE_URL=${SUPABASE_URL:-http://supabase:8000}
+      - N8N_WEBHOOK_URL=${N8N_WEBHOOK_URL:-http://n8n:5678/webhook/generate-post}
+    volumes:
+      # Медиафайлы (сохраняются между перезапусками)
+      - ./media:/app/media
+      # Временные аудио файлы
+      - ./audio_temp:/app/audio_temp
+      # Логи (опционально)
+      - ./logs:/app/logs
+    ports:
+      # Порт для webhook от n8n
+      - "8080:8080"
+    networks:
+      - bot-network
+    depends_on:
+      - supabase
+      - n8n
+    # Healthcheck
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================================
+  # SUPABASE (если еще не запущен)
+  # ============================================================
+  supabase:
+    image: supabase/supabase:latest
+    container_name: supabase
+    restart: unless-stopped
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-token}
+      - ANON_KEY=${ANON_KEY:-your-anon-key}
+      - SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY:-your-service-role-key}
+    volumes:
+      - supabase-data:/var/lib/postgresql/data
+    ports:
+      - "8000:8000"  # API
+      - "5432:5432"  # PostgreSQL
+    networks:
+      - bot-network
+    # Если у вас уже есть Supabase, закомментируйте этот сервис
+    # и используйте external_links
+
+  # ============================================================
+  # N8N (если еще не запущен)
+  # ============================================================
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_USER:-admin}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:-admin}
+      - WEBHOOK_URL=${N8N_WEBHOOK_BASE_URL:-http://localhost:5678/}
+    volumes:
+      - n8n-data:/home/node/.n8n
+    ports:
+      - "5678:5678"
+    networks:
+      - bot-network
+    # Если у вас уже есть n8n, закомментируйте этот сервис
+    # и используйте external_links
+
+# ============================================================
+# VOLUMES
+# ============================================================
+volumes:
+  supabase-data:
+    driver: local
+  n8n-data:
+    driver: local
+
+# ============================================================
+# NETWORKS
+# ============================================================
+networks:
+  bot-network:
+    driver: bridge
+    # Если хотите подключиться к существующей сети:
+    # external: true
+    # name: existing-network-name
+

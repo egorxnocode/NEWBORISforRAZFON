@@ -1,0 +1,66 @@
+# ============================================================
+# DOCKER ENVIRONMENT - Пример настроек для Docker окружения
+# Скопируйте этот файл в .env и заполните своими данными
+# ============================================================
+
+# ============================================================
+# TELEGRAM BOT
+# ============================================================
+BOT_TOKEN=your_bot_token_here
+
+# ============================================================
+# SUPABASE (Docker внутренний URL)
+# ============================================================
+# Если Supabase в той же Docker сети, используйте имя контейнера:
+SUPABASE_URL=http://supabase:8000
+# Или если Supabase на хосте:
+# SUPABASE_URL=http://host.docker.internal:8000
+# Или внешний URL:
+# SUPABASE_URL=https://your-project.supabase.co
+
+SUPABASE_KEY=your_supabase_service_role_key_here
+
+# Если Supabase в том же docker-compose (опционально):
+POSTGRES_PASSWORD=postgres
+JWT_SECRET=your-super-secret-jwt-token
+ANON_KEY=your-anon-key
+SERVICE_ROLE_KEY=your-service-role-key
+
+# ============================================================
+# N8N (Docker внутренний URL)
+# ============================================================
+# Если n8n в той же Docker сети, используйте имя контейнера:
+N8N_WEBHOOK_URL=http://n8n:5678/webhook/generate-post
+# Или если n8n на хосте:
+# N8N_WEBHOOK_URL=http://host.docker.internal:5678/webhook/generate-post
+# Или внешний URL:
+# N8N_WEBHOOK_URL=https://your-n8n.com/webhook/generate-post
+
+N8N_TIMEOUT=180
+
+# Настройки n8n (если в том же docker-compose):
+N8N_USER=admin
+N8N_PASSWORD=admin
+N8N_WEBHOOK_BASE_URL=http://localhost:5678/
+
+# ============================================================
+# ADMIN SETTINGS
+# ============================================================
+ADMIN_IDS=123456789,987654321
+
+# ID чата курса (откуда исключать при 3 штрафах)
+COURSE_CHAT_ID=-1001234567890
+
+# ID чата для мониторинга (куда отправлять отчеты)
+MONITORING_CHAT_ID=-1001234567891
+
+# ============================================================
+# OPENAI
+# ============================================================
+OPENAI_API_KEY=sk-your_openai_key_here
+
+# ============================================================
+# OTHER
+# ============================================================
+TIMEZONE=Europe/Moscow
+
