@@ -12,6 +12,7 @@ from aiogram import Bot, Dispatcher, F
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message, FSInputFile, CallbackQuery
 from aiogram.enums import ParseMode
+from aiogram.client.default import DefaultBotProperties
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 import pytz
@@ -59,7 +60,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Инициализация бота и диспетчера
-bot = Bot(token=config.BOT_TOKEN, parse_mode=ParseMode.HTML)
+bot = Bot(
+    token=config.BOT_TOKEN,
+    default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+)
 dp = Dispatcher()
 
 # Планировщик задач
