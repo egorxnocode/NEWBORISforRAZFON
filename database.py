@@ -452,7 +452,10 @@ async def get_all_active_users_in_course() -> list:
     """
     try:
         # Получаем всех, кто in_progress
+        print(f"[DEBUG] Запрос пользователей с course_state = {CourseState.IN_PROGRESS}")
         response = supabase.table(TABLE_NAME).select("*").eq("course_state", CourseState.IN_PROGRESS).execute()
+        
+        print(f"[DEBUG] Supabase вернул {len(response.data) if response.data else 0} пользователей")
         
         # Фильтруем заблокированных вручную (если колонка blocked_at существует)
         if response.data:
@@ -461,6 +464,10 @@ async def get_all_active_users_in_course() -> list:
                 # Пропускаем если пользователь заблокирован
                 if user.get('blocked_at') is None:
                     users.append(user)
+                    print(f"[DEBUG] Добавлен пользователь {user.get('telegram_id')}, current_task={user.get('current_task')}")
+                else:
+                    print(f"[DEBUG] Пропущен заблокированный пользователь {user.get('telegram_id')}")
+            print(f"[DEBUG] После фильтрации осталось {len(users)} пользователей")
             return users
         return []
     except Exception as e:

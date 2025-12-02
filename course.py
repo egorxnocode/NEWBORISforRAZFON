@@ -199,8 +199,12 @@ async def send_task_to_users(bot: Bot, task_number: int):
         from database import get_all_active_users_in_course
         users = await get_all_active_users_in_course()
         
+        logger.info(f"📊 Получено пользователей для задания {task_number}: {len(users)}")
+        if users:
+            logger.info(f"📋 Список telegram_id: {[u.get('telegram_id') for u in users]}")
+        
         if not users:
-            logger.warning(f"Нет пользователей для задания {task_number}")
+            logger.warning(f"❌ Нет пользователей для задания {task_number}")
             return
         
         # Получаем текст задания из колонки "zadanie"
@@ -249,14 +253,16 @@ async def send_task_to_users(bot: Bot, task_number: int):
                 # Обновляем current_task у пользователя
                 from database import supabase, TABLE_NAME
                 try:
-                    supabase.table(TABLE_NAME).update({
+                    logger.info(f"Обновляем current_task={task_number} для пользователя {telegram_id}")
+                    response = supabase.table(TABLE_NAME).update({
                         'current_task': task_number
                     }).eq('telegram_id', telegram_id).execute()
+                    logger.info(f"✅ current_task обновлен для {telegram_id}: {response.data}")
                 except Exception as update_error:
-                    logger.warning(f"Не удалось обновить current_task для {telegram_id}: {update_error}")
+                    logger.error(f"❌ Не удалось обновить current_task для {telegram_id}: {update_error}")
                 
                 success_count += 1
-                logger.info(f"Задание {task_number} отправлено пользователю {telegram_id}, current_task обновлен")
+                logger.info(f"Задание {task_number} отправлено пользователю {telegram_id}")
                 
             except Exception as e:
                 failed_count += 1
