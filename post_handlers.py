@@ -42,7 +42,10 @@ async def handle_submit_task_button(message: Message, bot: Bot):
     # Получаем текущее задание пользователя
     current_task = await get_user_current_task(user_id)
     
+    logger.info(f"Пользователь {user_id} нажал 'Сдать задание'. current_task = {current_task}")
+    
     if current_task < 1 or current_task > 14:
+        logger.warning(f"Пользователь {user_id} не имеет активного задания (current_task={current_task})")
         await message.answer(messages.MSG_NO_ACTIVE_TASK)
         return
     
@@ -146,7 +149,10 @@ async def handle_write_post_button(message: Message, bot: Bot):
     # Получаем текущее задание
     current_task = await get_user_current_task(user_id)
     
+    logger.info(f"Пользователь {user_id} нажал 'Напиши пост'. current_task = {current_task}")
+    
     if current_task < 1 or current_task > 14:
+        logger.warning(f"Пользователь {user_id} не имеет активного задания (current_task={current_task})")
         await message.answer(messages.MSG_NO_ACTIVE_TASK)
         return
     

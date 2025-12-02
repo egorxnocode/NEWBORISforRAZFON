@@ -68,7 +68,10 @@ async def get_user_by_telegram_id(telegram_id: int) -> Optional[Dict[str, Any]]:
     try:
         response = supabase.table(TABLE_NAME).select("*").eq("telegram_id", telegram_id).execute()
         if response.data and len(response.data) > 0:
-            return response.data[0]
+            user_data = response.data[0]
+            print(f"[DEBUG] get_user_by_telegram_id({telegram_id}): found, current_task = {user_data.get('current_task')}")
+            return user_data
+        print(f"[DEBUG] get_user_by_telegram_id({telegram_id}): NOT found")
         return None
     except Exception as e:
         print(f"Ошибка при получении пользователя: {e}")
@@ -328,7 +331,10 @@ async def get_user_current_task(telegram_id: int) -> int:
     """Получает номер текущего задания пользователя"""
     user = await get_user_by_telegram_id(telegram_id)
     if user:
-        return user.get("current_task", 0)
+        task = user.get("current_task", 0)
+        print(f"[DEBUG] get_user_current_task({telegram_id}): user found, current_task = {task}, type = {type(task)}")
+        return task if task else 0
+    print(f"[DEBUG] get_user_current_task({telegram_id}): user NOT found")
     return 0
 
 
