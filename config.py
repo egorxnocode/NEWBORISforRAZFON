@@ -63,6 +63,10 @@ CHECK_TIME = "09:50"
 # Количество дней курса
 COURSE_DAYS = 14
 
+# Проверка возраста поста (требует прав администратора бота в канале)
+CHECK_POST_AGE = os.getenv("CHECK_POST_AGE", "false").lower() == "true"
+MAX_POST_AGE_HOURS = int(os.getenv("MAX_POST_AGE_HOURS", "23"))
+
 # Пути к картинкам для курса
 TASK_IMAGE_DIR = "media/tasks"  # Директория с картинками заданий (task_1.jpg, task_2.jpg и т.д.)
 

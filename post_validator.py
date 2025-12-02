@@ -58,7 +58,7 @@ def extract_channel_username(channel_link: str) -> Optional[str]:
     return None
 
 
-async def get_post_date(bot: Bot, channel_username: str, post_id: int) -> Optional[datetime]:
+async def get_post_date(bot: Bot, channel_username: str, post_id: int, check_age: bool = False) -> Optional[datetime]:
     """
     Получает дату публикации поста
     
@@ -66,36 +66,55 @@ async def get_post_date(bot: Bot, channel_username: str, post_id: int) -> Option
         bot: Экземпляр бота
         channel_username: Username канала без @
         post_id: ID поста
+        check_age: Проверять ли реальный возраст поста (требует прав администратора)
         
     Returns:
         Datetime публикации или None если пост не найден
     """
+    # Если проверка возраста отключена, просто возвращаем текущее время
+    # (считаем что пост существует и свежий)
+    if not check_age:
+        logger.info(f"Проверка возраста поста {channel_username}/{post_id} отключена (CHECK_POST_AGE=false)")
+        return datetime.now()
+    
+    # Если проверка включена, пробуем получить реальную дату
     try:
-        # Пробуем получить пост
         chat_id = f"@{channel_username}"
-        message = await bot.forward_message(
-            chat_id=bot.id,  # Пересылаем себе
-            from_chat_id=chat_id,
-            message_id=post_id
-        )
         
-        # Получаем дату
-        post_date = message.date
+        # Для получения даты поста бот должен быть администратором канала
+        # или использовать метод forward_message
+        from aiogram.exceptions import TelegramBadRequest
         
-        # Удаляем пересланное сообщение
         try:
-            await bot.delete_message(chat_id=bot.id, message_id=message.message_id)
-        except:
-            pass
-        
-        return post_date
+            # Пересылаем сообщение себе для получения даты
+            logger.info(f"Попытка получить дату поста {channel_username}/{post_id}")
+            message = await bot.forward_message(
+                chat_id=bot.id,
+                from_chat_id=chat_id,
+                message_id=post_id
+            )
+            
+            post_date = message.date
+            
+            # Удаляем пересланное сообщение
+            try:
+                await bot.delete_message(chat_id=bot.id, message_id=message.message_id)
+            except:
+                pass
+            
+            return post_date
+            
+        except TelegramBadRequest as e:
+            logger.error(f"Не удалось получить пост {channel_username}/{post_id}: {e}")
+            logger.error("Бот должен быть добавлен как администратор в канал для проверки возраста постов")
+            return None
         
     except Exception as e:
         logger.error(f"Ошибка при получении даты поста {channel_username}/{post_id}: {e}")
         return None
 
 
-async def is_post_recent(bot: Bot, channel_username: str, post_id: int, max_hours: int = 23) -> Tuple[bool, Optional[datetime]]:
+async def is_post_recent(bot: Bot, channel_username: str, post_id: int, max_hours: int = 23, check_age: bool = False) -> Tuple[bool, Optional[datetime]]:
     """
     Проверяет, опубликован ли пост не более max_hours назад
     
@@ -104,14 +123,19 @@ async def is_post_recent(bot: Bot, channel_username: str, post_id: int, max_hour
         channel_username: Username канала без @
         post_id: ID поста
         max_hours: Максимальное количество часов (по умолчанию 23)
+        check_age: Проверять ли реальный возраст поста (требует прав администратора)
         
     Returns:
         Tuple (is_recent, post_date)
     """
-    post_date = await get_post_date(bot, channel_username, post_id)
+    post_date = await get_post_date(bot, channel_username, post_id, check_age)
     
     if not post_date:
         return (False, None)
+    
+    # Если проверка возраста отключена, всегда возвращаем True
+    if not check_age:
+        return (True, post_date)
     
     # Проверяем разницу во времени
     now = datetime.now(post_date.tzinfo)
@@ -126,7 +150,8 @@ async def validate_post_link(
     bot: Bot,
     link: str,
     user_channel: str,
-    max_hours: int = 23
+    max_hours: int = 23,
+    check_age: bool = False
 ) -> Tuple[bool, str, Optional[str], Optional[str], Optional[datetime]]:
     """
     Полная валидация ссылки на пост
@@ -136,6 +161,7 @@ async def validate_post_link(
         link: Ссылка на пост
         user_channel: Канал пользователя (из регистрации)
         max_hours: Максимальный возраст поста в часах
+        check_age: Проверять ли реальный возраст поста (требует прав администратора)
         
     Returns:
         Tuple (is_valid, error_type, post_channel, user_channel_clean, post_date)
@@ -160,8 +186,8 @@ async def validate_post_link(
     if post_channel.lower() != user_channel_clean.lower():
         return (False, 'wrong_channel', post_channel, user_channel_clean, None)
     
-    # Проверяем возраст поста
-    is_recent, post_date = await is_post_recent(bot, post_channel, post_id, max_hours)
+    # Проверяем возраст поста (если включена проверка)
+    is_recent, post_date = await is_post_recent(bot, post_channel, post_id, max_hours, check_age)
     
     if not is_recent:
         return (False, 'too_old', post_channel, user_channel_clean, post_date)

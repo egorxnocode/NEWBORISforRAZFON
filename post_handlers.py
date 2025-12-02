@@ -89,8 +89,11 @@ async def handle_post_link(message: Message, bot: Bot):
     user_channel = user.get('channel_link', '')
     
     # Валидируем ссылку
+    import config
     is_valid, error_type, post_channel, user_channel_clean, post_date = await validate_post_link(
-        bot, link, user_channel, max_hours=23
+        bot, link, user_channel, 
+        max_hours=config.MAX_POST_AGE_HOURS,
+        check_age=config.CHECK_POST_AGE
     )
     
     if not is_valid:
