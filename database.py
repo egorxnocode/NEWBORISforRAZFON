@@ -445,9 +445,18 @@ async def get_all_active_users_in_course() -> list:
     Включая тех, кто не сдал предыдущее задание
     """
     try:
-        # Получаем всех, кто in_progress (не excluded, not_started, completed, blocked)
-        response = supabase.table(TABLE_NAME).select("*").eq("course_state", CourseState.IN_PROGRESS).is_("blocked_at", "null").execute()
-        return response.data if response.data else []
+        # Получаем всех, кто in_progress
+        response = supabase.table(TABLE_NAME).select("*").eq("course_state", CourseState.IN_PROGRESS).execute()
+        
+        # Фильтруем заблокированных вручную (если колонка blocked_at существует)
+        if response.data:
+            users = []
+            for user in response.data:
+                # Пропускаем если пользователь заблокирован
+                if user.get('blocked_at') is None:
+                    users.append(user)
+            return users
+        return []
     except Exception as e:
         print(f"Ошибка при получении активных пользователей: {e}")
         return []
