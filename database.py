@@ -185,9 +185,10 @@ async def start_course_for_users() -> bool:
     """Запускает курс для всех зарегистрированных пользователей"""
     try:
         # Обновляем состояние всех зарегистрированных пользователей
+        # current_task НЕ устанавливаем сразу - будет установлен при отправке первого задания
         response = supabase.table(TABLE_NAME).update({
             "course_state": CourseState.IN_PROGRESS,
-            "current_task": 1,
+            "current_task": 0,
             "penalties": 0
         }).eq("state", UserState.REGISTERED).execute()
         return True

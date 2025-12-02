@@ -246,8 +246,17 @@ async def send_task_to_users(bot: Bot, task_number: int):
                         reply_markup=keyboard
                     )
                 
+                # Обновляем current_task у пользователя
+                from database import supabase, TABLE_NAME
+                try:
+                    supabase.table(TABLE_NAME).update({
+                        'current_task': task_number
+                    }).eq('telegram_id', telegram_id).execute()
+                except Exception as update_error:
+                    logger.warning(f"Не удалось обновить current_task для {telegram_id}: {update_error}")
+                
                 success_count += 1
-                logger.info(f"Задание {task_number} отправлено пользователю {telegram_id}")
+                logger.info(f"Задание {task_number} отправлено пользователю {telegram_id}, current_task обновлен")
                 
             except Exception as e:
                 failed_count += 1
