@@ -36,6 +36,7 @@ from database import (
 )
 from course import (
     start_course,
+    stop_course,
     send_task_to_users,
     send_reminder,
     check_tasks_completion,
@@ -176,9 +177,37 @@ async def cmd_razgon_start(message: Message):
         await message.answer(messages.MSG_NOT_ADMIN)
         return
     
-    # Запускаем курс
+    # Запускаем курс (без отправки заданий - только активация рассылки)
     result_message = await start_course(bot, user_id)
     await message.answer(result_message)
+
+
+@dp.message(Command("razgon_stop"))
+async def cmd_razgon_stop(message: Message):
+    """Обработчик команды /razgon_stop - остановка курса и очистка данных (только для админов)"""
+    user_id = message.from_user.id
+    
+    # Проверяем, является ли пользователь админом
+    if not is_admin(user_id):
+        await message.answer(messages.MSG_NOT_ADMIN)
+        return
+    
+    # Проверяем подтверждение
+    text = message.text.strip()
+    
+    if text == "/razgon_stop":
+        # Запрос подтверждения
+        await message.answer(messages.MSG_ADMIN_STOP_COURSE_CONFIRM)
+        return
+    
+    if text == "/razgon_stop CONFIRM":
+        # Выполняем остановку курса
+        result = await stop_course(bot, user_id)
+        await message.answer(result['message'])
+        return
+    
+    # Неверный формат
+    await message.answer(messages.MSG_ADMIN_STOP_COURSE_CANCELLED)
 
 
 @dp.message(Command("send_digest"))

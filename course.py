@@ -52,6 +52,79 @@ def get_task_keyboard() -> InlineKeyboardMarkup:
     return keyboard
 
 
+async def stop_course(bot: Bot, admin_id: int) -> dict:
+    """
+    Останавливает курс и очищает все данные
+    
+    Args:
+        bot: Экземпляр бота
+        admin_id: ID админа, остановившего курс
+        
+    Returns:
+        Словарь с результатом: {'success': bool, 'message': str, 'users_count': int}
+    """
+    try:
+        # Проверяем, активен ли курс
+        course_state = await get_global_course_state()
+        
+        if not course_state or not course_state.get("is_active"):
+            return {
+                'success': False,
+                'message': messages.MSG_ADMIN_STOP_NO_ACTIVE_COURSE,
+                'users_count': 0
+            }
+        
+        # Получаем всех пользователей в курсе
+        from database import get_all_active_users_in_course, supabase, TABLE_NAME
+        users = await get_all_active_users_in_course()
+        
+        # Очищаем данные пользователей
+        for user in users:
+            telegram_id = user.get('telegram_id')
+            if telegram_id:
+                # Сбрасываем все данные курса
+                supabase.table(TABLE_NAME).update({
+                    'penalties': 0,
+                    'current_task': 0,
+                    'course_state': 'registered',
+                    'last_task_sent_at': None,
+                    'last_reminder_sent_at': None,
+                    'post_1': None,
+                    'post_2': None,
+                    'post_3': None,
+                    'post_4': None,
+                    'post_5': None,
+                    'post_6': None,
+                    'post_7': None,
+                    'post_8': None,
+                    'post_9': None,
+                    'post_10': None,
+                    'post_11': None,
+                    'post_12': None,
+                    'post_13': None,
+                    'post_14': None,
+                }).eq('telegram_id', telegram_id).execute()
+        
+        # Деактивируем курс
+        await update_global_course_state(is_active=False, current_day=0)
+        
+        logger.info(f"Курс остановлен администратором {admin_id}. Очищено пользователей: {len(users)}")
+        
+        return {
+            'success': True,
+            'message': messages.MSG_ADMIN_STOP_COURSE_SUCCESS.format(users_count=len(users)),
+            'users_count': len(users)
+        }
+        
+    except Exception as e:
+        logger.error(f"Ошибка при остановке курса: {e}")
+        return {
+            'success': False,
+            'message': f"❌ Ошибка при остановке курса: {e}",
+            'users_count': 0
+        }
+
+
 async def start_course(bot: Bot, admin_id: int) -> str:
     """
     Запускает курс
@@ -78,10 +151,10 @@ async def start_course(bot: Bot, admin_id: int) -> str:
         # Обновляем состояние пользователей
         await start_course_for_users()
         
-        # Отправляем первое задание сразу
-        await send_task_to_users(bot, 1)
+        # НЕ отправляем первое задание сразу!
+        # Задания будут отправляться только по расписанию (10:00) или по команде /send_digest
         
-        logger.info(f"Курс запущен администратором {admin_id}")
+        logger.info(f"Курс запущен администратором {admin_id}. Рассылка активирована.")
         
         return messages.MSG_COURSE_STARTED
         
