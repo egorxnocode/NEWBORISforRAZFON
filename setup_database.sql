@@ -10,6 +10,19 @@ CREATE TABLE IF NOT EXISTS users (
     channel_link VARCHAR(255),
     state VARCHAR(50) DEFAULT 'new',
     
+    -- Данные курса
+    penalties INTEGER DEFAULT 0,
+    current_task INTEGER DEFAULT 0,
+    course_state VARCHAR(50) DEFAULT 'not_started',
+    
+    -- Временные метки
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    registered_at TIMESTAMP WITH TIME ZONE,
+    last_task_sent_at TIMESTAMP WITH TIME ZONE,
+    last_reminder_sent_at TIMESTAMP WITH TIME ZONE,
+    blocked_at TIMESTAMP WITH TIME ZONE,
+    
     -- Ссылки на посты заданий (14 колонок)
     post_1 VARCHAR(500),
     post_2 VARCHAR(500),
@@ -24,10 +37,7 @@ CREATE TABLE IF NOT EXISTS users (
     post_11 VARCHAR(500),
     post_12 VARCHAR(500),
     post_13 VARCHAR(500),
-    post_14 VARCHAR(500),
-    
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    post_14 VARCHAR(500)
 );
 
 -- Создаем индексы для быстрого поиска
