@@ -33,12 +33,15 @@ from user_states import (
 logger = logging.getLogger(__name__)
 
 
-async def handle_submit_task_button(message: Message, bot: Bot):
+async def handle_submit_task_button(user_id: int, message: Message, bot: Bot):
     """
     Обработчик кнопки "Сдать задание"
-    """
-    user_id = message.from_user.id
     
+    Args:
+        user_id: Telegram ID пользователя (из callback.from_user.id)
+        message: Message объект для ответа
+        bot: Bot instance
+    """
     # Получаем текущее задание пользователя
     current_task = await get_user_current_task(user_id)
     
@@ -140,12 +143,15 @@ async def handle_post_link(message: Message, bot: Bot):
         await message.answer(messages.MSG_POST_ACCEPTED)
 
 
-async def handle_write_post_button(message: Message, bot: Bot):
+async def handle_write_post_button(user_id: int, message: Message, bot: Bot):
     """
     Обработчик кнопки "Напиши пост"
-    """
-    user_id = message.from_user.id
     
+    Args:
+        user_id: Telegram ID пользователя (из callback.from_user.id)
+        message: Message объект для ответа
+        bot: Bot instance
+    """
     # Получаем текущее задание
     current_task = await get_user_current_task(user_id)
     

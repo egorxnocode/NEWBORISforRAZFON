@@ -524,7 +524,7 @@ async def callback_write_post(callback: CallbackQuery):
         return
     
     await callback.answer()
-    await handle_write_post_button(callback.message, bot)
+    await handle_write_post_button(user_id, callback.message, bot)
 
 
 @dp.callback_query(F.data == "submit_task")
@@ -546,7 +546,7 @@ async def callback_submit_task(callback: CallbackQuery):
         return
     
     await callback.answer()
-    await handle_submit_task_button(callback.message, bot)
+    await handle_submit_task_button(user_id, callback.message, bot)
 
 
 # ============================================================
