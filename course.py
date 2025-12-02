@@ -82,28 +82,44 @@ async def stop_course(bot: Bot, admin_id: int) -> dict:
         for user in users:
             telegram_id = user.get('telegram_id')
             if telegram_id:
-                # Сбрасываем все данные курса
-                supabase.table(TABLE_NAME).update({
-                    'penalties': 0,
-                    'current_task': 0,
-                    'course_state': 'registered',
-                    'last_task_sent_at': None,
-                    'last_reminder_sent_at': None,
-                    'post_1': None,
-                    'post_2': None,
-                    'post_3': None,
-                    'post_4': None,
-                    'post_5': None,
-                    'post_6': None,
-                    'post_7': None,
-                    'post_8': None,
-                    'post_9': None,
-                    'post_10': None,
-                    'post_11': None,
-                    'post_12': None,
-                    'post_13': None,
-                    'post_14': None,
-                }).eq('telegram_id', telegram_id).execute()
+                try:
+                    # Формируем данные для обновления только с существующими полями
+                    update_data = {
+                        'state': 'registered',
+                        'post_1': None,
+                        'post_2': None,
+                        'post_3': None,
+                        'post_4': None,
+                        'post_5': None,
+                        'post_6': None,
+                        'post_7': None,
+                        'post_8': None,
+                        'post_9': None,
+                        'post_10': None,
+                        'post_11': None,
+                        'post_12': None,
+                        'post_13': None,
+                        'post_14': None,
+                    }
+                    
+                    # Добавляем дополнительные поля если они есть в схеме
+                    # Используем безопасное обновление - если колонки нет, она будет проигнорирована
+                    if 'penalties' in user:
+                        update_data['penalties'] = 0
+                    if 'current_task' in user:
+                        update_data['current_task'] = 0
+                    if 'course_state' in user:
+                        update_data['course_state'] = 'registered'
+                    if 'last_task_sent_at' in user:
+                        update_data['last_task_sent_at'] = None
+                    if 'last_reminder_sent_at' in user:
+                        update_data['last_reminder_sent_at'] = None
+                    
+                    # Сбрасываем данные курса
+                    supabase.table(TABLE_NAME).update(update_data).eq('telegram_id', telegram_id).execute()
+                except Exception as e:
+                    logger.warning(f"Не удалось обновить пользователя {telegram_id}: {e}")
+                    # Продолжаем со следующим пользователем
         
         # Деактивируем курс
         await update_global_course_state(is_active=False, current_day=0)
