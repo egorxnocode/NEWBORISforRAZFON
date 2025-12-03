@@ -363,7 +363,7 @@ async def cmd_test_reminder_935(message: Message):
 
 @dp.message(Command("950"))
 async def cmd_test_check_950(message: Message):
-    """Тестовая команда: проверка и штрафы в 9:50"""
+    """Тестовая команда: проверка и штрафы в 9:50 + переход на следующий день"""
     user_id = message.from_user.id
     
     if not is_admin(user_id):
@@ -384,8 +384,15 @@ async def cmd_test_check_950(message: Message):
     all_users_before = await get_all_active_users_in_course()
     users_not_completed = await get_users_by_current_task(current_day)
     
-    # Выполняем проверку и выдачу штрафов
+    # Выполняем проверку и выдачу штрафов (как в 9:50)
     await check_tasks_completion(bot)
+    
+    # ВАЖНО: Переходим к следующему дню (как делает планировщик в 9:50)
+    await advance_course_day(bot)
+    
+    # Получаем новый день после перехода
+    new_course_state = await get_global_course_state()
+    new_day = new_course_state.get("current_day", 0) if new_course_state else current_day
     
     # Отчет админу
     await message.answer(
@@ -393,9 +400,9 @@ async def cmd_test_check_950(message: Message):
             total=len(all_users_before),
             penalties=len(users_not_completed),
             moved=len(all_users_before)
-        )
+        ) + f"\n\n📅 Курс перешёл на день {new_day}"
     )
-    logger.info(f"Админ {user_id} запустил тест проверки 9:50")
+    logger.info(f"Админ {user_id} запустил тест проверки 9:50. Курс перешёл на день {new_day}")
 
 
 async def handle_send_digest_all(message: Message, current_day: int):
