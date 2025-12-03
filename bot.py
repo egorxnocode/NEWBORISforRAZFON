@@ -730,40 +730,72 @@ async def handle_channel_input(message: Message, text: str):
 
 async def scheduled_send_task():
     """Отправка задания в 10:00"""
-    logger.info("Запуск рассылки задания...")
+    logger.info("=" * 50)
+    logger.info("⏰ ПЛАНИРОВЩИК: Запуск рассылки задания (10:00)")
+    logger.info("=" * 50)
+    
     from database import get_global_course_state
     
     course_state = await get_global_course_state()
-    if course_state and course_state.get("is_active"):
-        current_day = course_state.get("current_day", 0)
-        if 1 <= current_day <= config.COURSE_DAYS:
-            await send_task_to_users(bot, current_day)
+    
+    if not course_state:
+        logger.warning("❌ course_state не найден в БД!")
+        return
+    
+    logger.info(f"📊 Состояние курса: is_active={course_state.get('is_active')}, current_day={course_state.get('current_day')}")
+    
+    if not course_state.get("is_active"):
+        logger.info("⏸️ Курс не активен, рассылка пропущена")
+        return
+    
+    current_day = course_state.get("current_day", 0)
+    
+    if current_day < 1:
+        logger.warning(f"⚠️ current_day={current_day} < 1, рассылка пропущена")
+        return
+    
+    if current_day > config.COURSE_DAYS:
+        logger.warning(f"⚠️ current_day={current_day} > {config.COURSE_DAYS}, курс завершен")
+        return
+    
+    logger.info(f"📤 Отправляем задание дня {current_day}...")
+    await send_task_to_users(bot, current_day)
+    logger.info(f"✅ Рассылка задания {current_day} завершена")
 
 
 async def scheduled_reminder_1():
     """Напоминание в 8:50"""
-    logger.info("Отправка первого напоминания...")
+    logger.info("=" * 50)
+    logger.info("⏰ ПЛАНИРОВЩИК: Напоминание 1 (8:50)")
+    logger.info("=" * 50)
     await send_reminder(bot, "reminder_1")
 
 
 async def scheduled_reminder_2():
     """Напоминание в 9:20"""
-    logger.info("Отправка второго напоминания...")
+    logger.info("=" * 50)
+    logger.info("⏰ ПЛАНИРОВЩИК: Напоминание 2 (9:20)")
+    logger.info("=" * 50)
     await send_reminder(bot, "reminder_2")
 
 
 async def scheduled_reminder_3():
     """Напоминание в 9:35"""
-    logger.info("Отправка третьего напоминания...")
+    logger.info("=" * 50)
+    logger.info("⏰ ПЛАНИРОВЩИК: Напоминание 3 (9:35)")
+    logger.info("=" * 50)
     await send_reminder(bot, "reminder_3")
 
 
 async def scheduled_check_completion():
     """Проверка выполнения в 9:50"""
-    logger.info("Проверка выполнения заданий...")
+    logger.info("=" * 50)
+    logger.info("⏰ ПЛАНИРОВЩИК: Проверка выполнения и штрафы (9:50)")
+    logger.info("=" * 50)
     await check_tasks_completion(bot)
     
-    # После проверки переходим к следующему дню
+    # После проверки переходим к следующему дню (БЕЗ отправки заданий!)
+    # Задания отправятся в 10:00 через scheduled_send_task()
     await advance_course_day(bot)
 
 
@@ -779,6 +811,11 @@ async def scheduled_daily_summary():
 def setup_scheduler():
     """Настройка планировщика задач"""
     
+    logger.info("=" * 50)
+    logger.info("🔧 НАСТРОЙКА ПЛАНИРОВЩИКА")
+    logger.info(f"📍 Временная зона: {config.TIMEZONE}")
+    logger.info("=" * 50)
+    
     # Время рассылки задания (10:00)
     task_hour, task_minute = map(int, config.TASK_SEND_TIME.split(":"))
     scheduler.add_job(
@@ -786,7 +823,7 @@ def setup_scheduler():
         CronTrigger(hour=task_hour, minute=task_minute, timezone=config.TIMEZONE),
         id="send_task"
     )
-    logger.info(f"Планировщик: рассылка заданий в {config.TASK_SEND_TIME}")
+    logger.info(f"📤 Рассылка заданий: {config.TASK_SEND_TIME} (час={task_hour}, мин={task_minute})")
     
     # Напоминания
     for i, reminder_time in enumerate(config.REMINDER_TIMES, 1):
