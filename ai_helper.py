@@ -195,15 +195,20 @@ async def generate_post_with_ai(
         return None
     
     # Подставляем ответы в промпт
-    # Можно использовать простую замену или форматирование
-    prompt = prompt_template.format(
-        answer_1=answer_1,
-        answer_2=answer_2,
-        answer_3=answer_3,
-        vopros_1=answer_1,
-        vopros_2=answer_2,
-        vopros_3=answer_3
-    )
+    # Поддерживаем оба формата: {vopros_1} и просто vopros_1
+    prompt = prompt_template
+    
+    # Сначала пробуем простую замену строк (без фигурных скобок)
+    prompt = prompt.replace('vopros_1', answer_1)
+    prompt = prompt.replace('vopros_2', answer_2)
+    prompt = prompt.replace('vopros_3', answer_3)
+    
+    # Также заменяем варианты с фигурными скобками
+    prompt = prompt.replace('{answer_1}', answer_1)
+    prompt = prompt.replace('{answer_2}', answer_2)
+    prompt = prompt.replace('{answer_3}', answer_3)
+    
+    logger.info(f"Промпт после подстановки ответов: {prompt[:200]}...")
     
     # Генерируем уникальный ID запроса
     request_id = generate_request_id()
