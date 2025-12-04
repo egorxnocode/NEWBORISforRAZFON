@@ -172,14 +172,16 @@ async def cmd_razgon_start(message: Message):
     """Обработчик команды /razgon_start - запуск курса (только для админов)"""
     user_id = message.from_user.id
     
-    # Проверяем, является ли пользователь админом
+    # Проверяем, является ли пользователь админом (молча игнорируем если нет)
     if not is_admin(user_id):
-        await message.answer(messages.MSG_NOT_ADMIN)
         return
     
     # Запускаем курс (без отправки заданий - только активация рассылки)
     result_message = await start_course(bot, user_id)
-    await message.answer(result_message)
+    
+    # Отчёт в мониторинговый чат
+    await monitor.send_admin_report(bot, f"🚀 /razgon_start\n\n{result_message}")
+    logger.info(f"Админ {user_id} выполнил /razgon_start")
 
 
 @dp.message(Command("razgon_stop"))
@@ -187,27 +189,20 @@ async def cmd_razgon_stop(message: Message):
     """Обработчик команды /razgon_stop - остановка курса и очистка данных (только для админов)"""
     user_id = message.from_user.id
     
-    # Проверяем, является ли пользователь админом
+    # Проверяем, является ли пользователь админом (молча игнорируем если нет)
     if not is_admin(user_id):
-        await message.answer(messages.MSG_NOT_ADMIN)
         return
     
     # Проверяем подтверждение
     text = message.text.strip()
     
-    if text == "/razgon_stop":
-        # Запрос подтверждения
-        await message.answer(messages.MSG_ADMIN_STOP_COURSE_CONFIRM)
-        return
-    
     if text == "/razgon_stop CONFIRM":
         # Выполняем остановку курса
         result = await stop_course(bot, user_id)
-        await message.answer(result['message'])
-        return
-    
-    # Неверный формат
-    await message.answer(messages.MSG_ADMIN_STOP_COURSE_CANCELLED)
+        # Отчёт в мониторинговый чат
+        await monitor.send_admin_report(bot, f"🛑 /razgon_stop CONFIRM\n\n{result['message']}")
+        logger.info(f"Админ {user_id} остановил курс")
+    # Без CONFIRM - ничего не делаем (защита от случайного нажатия)
 
 
 @dp.message(Command("send_digest"))
@@ -221,9 +216,8 @@ async def cmd_send_digest(message: Message):
     """
     user_id = message.from_user.id
     
-    # Проверяем, является ли пользователь админом
+    # Проверяем, является ли пользователь админом (молча игнорируем если нет)
     if not is_admin(user_id):
-        await message.answer(messages.MSG_NOT_ADMIN)
         return
     
     # Парсим аргументы команды
@@ -231,7 +225,7 @@ async def cmd_send_digest(message: Message):
     parts = text.split(maxsplit=1)
     
     if len(parts) < 2:
-        await message.answer(messages.MSG_ADMIN_SEND_DIGEST_INVALID_FORMAT)
+        # Неверный формат - игнорируем
         return
     
     argument = parts[1].strip()
@@ -241,7 +235,7 @@ async def cmd_send_digest(message: Message):
     course_state = await get_global_course_state()
     
     if not course_state or not course_state.get("is_active"):
-        await message.answer(messages.MSG_ADMIN_SEND_DIGEST_NO_ACTIVE_COURSE)
+        # Курс не активен - игнорируем
         return
     
     current_day = course_state.get("current_day", 0)
@@ -261,7 +255,7 @@ async def cmd_send_digest(message: Message):
             target_user_id = int(argument)
             await handle_send_digest_one(message, current_day, target_user_id)
         except ValueError:
-            await message.answer(messages.MSG_ADMIN_SEND_DIGEST_INVALID_FORMAT)
+            pass  # Неверный формат - игнорируем
 
 
 # ============================================================
@@ -274,7 +268,6 @@ async def cmd_test_reminder_850(message: Message):
     user_id = message.from_user.id
     
     if not is_admin(user_id):
-        await message.answer(messages.MSG_NOT_ADMIN)
         return
     
     # Проверяем, активен ли курс
@@ -282,24 +275,10 @@ async def cmd_test_reminder_850(message: Message):
     course_state = await get_global_course_state()
     
     if not course_state or not course_state.get("is_active"):
-        await message.answer(messages.MSG_ADMIN_SEND_DIGEST_NO_ACTIVE_COURSE)
         return
     
     # Отправляем напоминание
     await send_reminder(bot, "reminder_1")
-    
-    # Считаем получателей
-    from database import get_users_by_current_task
-    current_day = course_state.get("current_day", 0)
-    users = await get_users_by_current_task(current_day)
-    
-    await message.answer(
-        messages.MSG_ADMIN_TEST_REMINDER_SENT.format(
-            number="1",
-            time="8:50",
-            count=len(users)
-        )
-    )
     logger.info(f"Админ {user_id} запустил тест напоминания 8:50")
 
 
@@ -309,7 +288,6 @@ async def cmd_test_reminder_920(message: Message):
     user_id = message.from_user.id
     
     if not is_admin(user_id):
-        await message.answer(messages.MSG_NOT_ADMIN)
         return
     
     # Проверяем, активен ли курс
@@ -317,24 +295,10 @@ async def cmd_test_reminder_920(message: Message):
     course_state = await get_global_course_state()
     
     if not course_state or not course_state.get("is_active"):
-        await message.answer(messages.MSG_ADMIN_SEND_DIGEST_NO_ACTIVE_COURSE)
         return
     
     # Отправляем напоминание
     await send_reminder(bot, "reminder_2")
-    
-    # Считаем получателей
-    from database import get_users_by_current_task
-    current_day = course_state.get("current_day", 0)
-    users = await get_users_by_current_task(current_day)
-    
-    await message.answer(
-        messages.MSG_ADMIN_TEST_REMINDER_SENT.format(
-            number="2",
-            time="9:20",
-            count=len(users)
-        )
-    )
     logger.info(f"Админ {user_id} запустил тест напоминания 9:20")
 
 
@@ -344,7 +308,6 @@ async def cmd_test_reminder_935(message: Message):
     user_id = message.from_user.id
     
     if not is_admin(user_id):
-        await message.answer(messages.MSG_NOT_ADMIN)
         return
     
     # Проверяем, активен ли курс
@@ -352,24 +315,10 @@ async def cmd_test_reminder_935(message: Message):
     course_state = await get_global_course_state()
     
     if not course_state or not course_state.get("is_active"):
-        await message.answer(messages.MSG_ADMIN_SEND_DIGEST_NO_ACTIVE_COURSE)
         return
     
     # Отправляем напоминание
     await send_reminder(bot, "reminder_3")
-    
-    # Считаем получателей
-    from database import get_users_by_current_task
-    current_day = course_state.get("current_day", 0)
-    users = await get_users_by_current_task(current_day)
-    
-    await message.answer(
-        messages.MSG_ADMIN_TEST_REMINDER_SENT.format(
-            number="3",
-            time="9:35",
-            count=len(users)
-        )
-    )
     logger.info(f"Админ {user_id} запустил тест напоминания 9:35")
 
 
@@ -379,7 +328,6 @@ async def cmd_test_check_950(message: Message):
     user_id = message.from_user.id
     
     if not is_admin(user_id):
-        await message.answer(messages.MSG_NOT_ADMIN)
         return
     
     # Проверяем, активен ли курс
@@ -387,7 +335,6 @@ async def cmd_test_check_950(message: Message):
     course_state = await get_global_course_state()
     
     if not course_state or not course_state.get("is_active"):
-        await message.answer(messages.MSG_ADMIN_SEND_DIGEST_NO_ACTIVE_COURSE)
         return
     
     # Получаем статистику до проверки
@@ -406,14 +353,13 @@ async def cmd_test_check_950(message: Message):
     new_course_state = await get_global_course_state()
     new_day = new_course_state.get("current_day", 0) if new_course_state else current_day
     
-    # Отчет админу
-    await message.answer(
-        messages.MSG_ADMIN_TEST_CHECK_SENT.format(
-            total=len(all_users_before),
-            penalties=len(users_not_completed),
-            moved=len(all_users_before)
-        ) + f"\n\n📅 Курс перешёл на день {new_day}"
-    )
+    # Отчёт в мониторинговый чат
+    report = f"""⚡ /950 (тест проверки)
+
+📊 Обработано: {len(all_users_before)} пользователей
+🚫 Штрафов: {len(users_not_completed)}
+📅 Курс перешёл на день {new_day}"""
+    await monitor.send_admin_report(bot, report)
     logger.info(f"Админ {user_id} запустил тест проверки 9:50. Курс перешёл на день {new_day}")
 
 
@@ -425,19 +371,10 @@ async def handle_send_digest_all(message: Message, current_day: int):
     users = await get_users_in_course()
     
     if not users:
-        await message.answer("⚠️ Нет пользователей в курсе")
         return
     
-    # Отправляем задание
+    # Отправляем задание (отчёт отправится через monitoring.py)
     await send_task_to_users(bot, current_day)
-    
-    # Подтверждаем админу
-    await message.answer(
-        messages.MSG_ADMIN_SEND_DIGEST_ALL_SUCCESS.format(
-            day=current_day,
-            count=len(users)
-        )
-    )
     
     logger.info(f"Админ {message.from_user.id} отправил задание дня {current_day} всем ({len(users)} чел.)")
 
@@ -456,28 +393,18 @@ async def handle_send_digest_one(message: Message, current_day: int, target_user
     user = await get_user_by_telegram_id(target_user_id)
     
     if not user:
-        await message.answer(
-            messages.MSG_ADMIN_SEND_DIGEST_USER_NOT_FOUND.format(user_id=target_user_id)
-        )
         return
     
     # Проверяем, участвует ли в курсе
     course_state = await get_user_course_state(target_user_id)
     
     if course_state not in [CourseState.IN_PROGRESS] and not course_state.startswith("waiting_task"):
-        await message.answer(
-            messages.MSG_ADMIN_SEND_DIGEST_USER_NOT_IN_COURSE.format(
-                user_id=target_user_id,
-                course_state=course_state
-            )
-        )
         return
     
     # Получаем задание
     task = await get_task_by_number(current_day)
     
     if not task:
-        await message.answer(f"❌ Задание дня {current_day} не найдено в БД")
         return
     
     # Формируем сообщение
@@ -516,20 +443,9 @@ async def handle_send_digest_one(message: Message, current_day: int, target_user
             'course_state': CourseState.IN_PROGRESS  # Пользователь получил задание
         }).eq('telegram_id', target_user_id).execute()
         
-        logger.info(f"✅ current_task={current_day}, course_state=in_progress для {target_user_id}")
-        
-        # Подтверждаем админу
-        await message.answer(
-            messages.MSG_ADMIN_SEND_DIGEST_ONE_SUCCESS.format(
-                day=current_day,
-                user_id=target_user_id
-            )
-        )
-        
-        logger.info(f"Админ {message.from_user.id} отправил задание дня {current_day} пользователю {target_user_id}")
+        logger.info(f"✅ Задание {current_day} отправлено пользователю {target_user_id}")
         
     except Exception as e:
-        await message.answer(f"❌ Ошибка при отправке: {e}")
         logger.error(f"Ошибка при отправке задания пользователю {target_user_id}: {e}")
 
 

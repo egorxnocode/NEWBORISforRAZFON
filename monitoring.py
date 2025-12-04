@@ -182,6 +182,20 @@ class BotMonitor:
                 await bot.send_message(chat_id=config.MONITORING_CHAT_ID, text=message)
             except Exception as e:
                 logger.error(f"Ошибка отправки дневной сводки: {e}")
+    
+    async def send_admin_report(self, bot: Bot, message_text: str):
+        """
+        Отправляет отчёт об админской команде в мониторинговый чат
+        
+        Args:
+            bot: Экземпляр бота
+            message_text: Текст отчёта
+        """
+        if config.MONITORING_CHAT_ID:
+            try:
+                await bot.send_message(chat_id=config.MONITORING_CHAT_ID, text=message_text)
+            except Exception as e:
+                logger.error(f"Ошибка отправки админского отчета: {e}")
 
 
 # Глобальный экземпляр монитора
