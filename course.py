@@ -404,13 +404,12 @@ async def send_reminder(bot: Bot, reminder_type: str):
 
 async def check_tasks_completion(bot: Bot):
     """
-    Проверяет выполнение заданий и выдает штрафы, переводит ВСЕХ пользователей к следующему заданию
+    Проверяет выполнение заданий и выдает штрафы
     
-    Логика штрафов:
-    - Если current_task == current_day -> пользователь ПОЛУЧИЛ задание, но НЕ сдал -> ШТРАФ
-    - Если current_task == 0 -> пользователь НЕ получил задание (курс запущен после 10:00) -> БЕЗ штрафа
-    - Если 0 < current_task < current_day -> пользователь отстал -> ШТРАФ
-    - Если current_task > current_day -> пользователь уже сдал -> ничего не делаем
+    Логика (все пользователи либо сдают, либо получают штраф):
+    - current_task == current_day → НЕ сдал → ШТРАФ + перевод на следующий день
+    - current_task > current_day → уже сдал → ничего не делаем
+    - current_task == 0 → не получал задание (курс только запущен) → перевод без штрафа
     """
     try:
         # Получаем текущий день курса
@@ -452,14 +451,13 @@ async def check_tasks_completion(bot: Bot):
             logger.info(f"👤 Пользователь {telegram_id}: current_task={user_current_task}, current_day={current_day}")
             
             try:
-                # Случай 1: Пользователь ПОЛУЧИЛ задание, но НЕ сдал (current_task == current_day)
+                # Случай 1: НЕ сдал задание (current_task == current_day) → ШТРАФ
                 if user_current_task == current_day:
-                    # Добавляем штраф
                     penalties = await add_penalty(telegram_id)
                     
-                    logger.info(f"🚫 Пользователь {telegram_id} получил штраф (не сдал задание {current_day}). Всего штрафов: {penalties}")
+                    logger.info(f"🚫 Пользователь {telegram_id} НЕ сдал задание {current_day}. Штраф #{penalties}")
                     
-                    # Собираем статистику для мониторинга
+                    # Статистика для мониторинга
                     if penalties <= 4:
                         penalties_by_count[penalties].append(telegram_id)
                     else:
@@ -479,72 +477,35 @@ async def check_tasks_completion(bot: Bot):
                         except Exception as e:
                             logger.error(f"Ошибка при исключении из чата: {e}")
                     
-                    # Переводим к следующему заданию
+                    # Переводим на следующее задание
                     from database import supabase, TABLE_NAME
                     next_task = current_day + 1
                     supabase.table(TABLE_NAME).update({
                         "current_task": next_task
                     }).eq("telegram_id", telegram_id).execute()
                     
-                    logger.info(f"➡️ Пользователь {telegram_id} переведен на задание {next_task}")
+                    logger.info(f"➡️ Переведен на задание {next_task}")
                 
-                # Случай 2: Пользователь УЖЕ сдал задание (current_task > current_day)
+                # Случай 2: Уже сдал (current_task > current_day) → ничего не делаем
                 elif user_current_task > current_day:
-                    logger.info(f"✅ Пользователь {telegram_id} уже выполнил задание {current_day} (current_task={user_current_task})")
-                    # Ничего не делаем
+                    logger.info(f"✅ Пользователь {telegram_id} уже сдал задание {current_day}")
                 
-                # Случай 3: Пользователь НЕ получил задание (current_task == 0)
+                # Случай 3: Не получал задание (current_task == 0) → перевод без штрафа
                 elif user_current_task == 0:
-                    # НЕ штрафуем - курс был запущен после 10:00, задание не было отправлено
-                    logger.warning(f"⚠️ Пользователь {telegram_id} имеет current_task=0 (не получил задание). Штраф НЕ начисляется.")
+                    logger.warning(f"⚠️ Пользователь {telegram_id} не получал задание (current_task=0). Перевод без штрафа.")
                     
-                    # Переводим на текущий день (чтобы получил задание в 10:00)
                     from database import supabase, TABLE_NAME
                     next_task = current_day + 1
                     supabase.table(TABLE_NAME).update({
                         "current_task": next_task
                     }).eq("telegram_id", telegram_id).execute()
-                    logger.info(f"➡️ Пользователь {telegram_id} переведен на задание {next_task} (без штрафа)")
-                
-                # Случай 4: Пользователь отстает (0 < current_task < current_day)
-                elif 0 < user_current_task < current_day:
-                    # Штрафуем за пропущенный день
-                    penalties = await add_penalty(telegram_id)
                     
-                    logger.info(f"🚫 Пользователь {telegram_id} отстал (current_task={user_current_task}, current_day={current_day}). Штраф! Всего: {penalties}")
-                    
-                    # Собираем статистику для мониторинга
-                    if penalties <= 4:
-                        penalties_by_count[penalties].append(telegram_id)
-                    else:
-                        penalties_by_count[4].append(telegram_id)
-                    
-                    # Отправляем сообщение о штрафе
-                    await send_penalty_message(bot, telegram_id, penalties)
-                    
-                    # Если 3 штрафа - исключаем из чата
-                    if penalties == 3 and config.COURSE_CHAT_ID:
-                        try:
-                            await bot.ban_chat_member(
-                                chat_id=config.COURSE_CHAT_ID,
-                                user_id=telegram_id
-                            )
-                            logger.info(f"Пользователь {telegram_id} исключен из чата")
-                        except Exception as e:
-                            logger.error(f"Ошибка при исключении из чата: {e}")
-                    
-                    # Переводим на текущее задание + 1
-                    from database import supabase, TABLE_NAME
-                    next_task = current_day + 1
-                    supabase.table(TABLE_NAME).update({
-                        "current_task": next_task
-                    }).eq("telegram_id", telegram_id).execute()
-                    logger.info(f"➡️ Пользователь {telegram_id} переведен на задание {next_task}")
+                    logger.info(f"➡️ Переведен на задание {next_task} (без штрафа)")
                 
             except Exception as e:
                 logger.error(f"Ошибка при обработке пользователя {telegram_id}: {e}")
         
-        logger.info(f"✅ Проверка выполнения заданий завершена. Обработано: {len(all_users)} пользователей")
+        logger.info(f"✅ Проверка завершена. Обработано: {len(all_users)} пользователей")
         
         # Отправляем отчет о штрафах в мониторинг
         await monitor.report_penalties(bot, penalties_by_count)
