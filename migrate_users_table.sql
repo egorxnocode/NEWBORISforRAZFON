@@ -21,3 +21,5 @@ ORDER BY ordinal_position;
 -- Сообщение об успехе
 SELECT 'Миграция завершена! Все колонки добавлены.' as status;
 
+
+

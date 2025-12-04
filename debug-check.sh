@@ -24,3 +24,5 @@ docker exec supabase-db psql -U postgres -d postgres -c "SELECT id, substring(za
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
+
+

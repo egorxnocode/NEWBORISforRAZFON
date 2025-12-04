@@ -18,3 +18,5 @@ docker exec supabase-db psql -U postgres -d postgres -c "SELECT telegram_id, cur
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
+
+

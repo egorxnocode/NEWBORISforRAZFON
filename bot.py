@@ -741,7 +741,7 @@ async def scheduled_send_task():
     logger.info("⏰ ПЛАНИРОВЩИК: Запуск рассылки задания (10:00)")
     logger.info("=" * 50)
     
-    from database import get_global_course_state
+    from database import get_global_course_state, update_global_course_state
     
     course_state = await get_global_course_state()
     
@@ -757,9 +757,12 @@ async def scheduled_send_task():
     
     current_day = course_state.get("current_day", 0)
     
-    if current_day < 1:
-        logger.warning(f"⚠️ current_day={current_day} < 1, рассылка пропущена")
-        return
+    # Если current_day = 0, это первый день после /razgon_start
+    # Увеличиваем до 1 и отправляем первое задание
+    if current_day == 0:
+        logger.info("🚀 Первая рассылка после /razgon_start! Устанавливаем current_day=1")
+        current_day = 1
+        await update_global_course_state(is_active=True, current_day=1)
     
     if current_day > config.COURSE_DAYS:
         logger.warning(f"⚠️ current_day={current_day} > {config.COURSE_DAYS}, курс завершен")
@@ -799,6 +802,24 @@ async def scheduled_check_completion():
     logger.info("=" * 50)
     logger.info("⏰ ПЛАНИРОВЩИК: Проверка выполнения и штрафы (9:50)")
     logger.info("=" * 50)
+    
+    # Проверяем состояние курса
+    from database import get_global_course_state
+    course_state = await get_global_course_state()
+    
+    if not course_state or not course_state.get("is_active"):
+        logger.info("⏸️ Курс не активен, проверка пропущена")
+        return
+    
+    current_day = course_state.get("current_day", 0)
+    
+    # Если current_day = 0, это значит курс только что запущен и первое задание ещё не отправлялось
+    # Проверку и advance_course_day делать НЕ нужно!
+    if current_day == 0:
+        logger.info("⏸️ current_day=0 (ожидаем первую рассылку в 10:00), проверка пропущена")
+        return
+    
+    logger.info(f"🔍 Проверка для дня {current_day}...")
     await check_tasks_completion(bot)
     
     # После проверки переходим к следующему дню (БЕЗ отправки заданий!)
