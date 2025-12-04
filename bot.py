@@ -373,7 +373,10 @@ async def handle_send_digest_all(message: Message, current_day: int):
     if not users:
         return
     
-    # Отправляем задание (отчёт отправится через monitoring.py)
+    # Отчёт в мониторинговый чат (до рассылки)
+    await monitor.send_admin_report(bot, f"📤 /send_digest all\n\nЗапущена рассылка задания {current_day} для {len(users)} пользователей...")
+    
+    # Отправляем задание (отчёт о результатах отправится через monitoring.py)
     await send_task_to_users(bot, current_day)
     
     logger.info(f"Админ {message.from_user.id} отправил задание дня {current_day} всем ({len(users)} чел.)")
@@ -443,6 +446,8 @@ async def handle_send_digest_one(message: Message, current_day: int, target_user
             'course_state': CourseState.IN_PROGRESS  # Пользователь получил задание
         }).eq('telegram_id', target_user_id).execute()
         
+        # Отчёт в мониторинговый чат
+        await monitor.send_admin_report(bot, f"📤 /send_digest {target_user_id}\n\nЗадание {current_day} отправлено пользователю {target_user_id}")
         logger.info(f"✅ Задание {current_day} отправлено пользователю {target_user_id}")
         
     except Exception as e:
