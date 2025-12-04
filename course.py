@@ -290,6 +290,9 @@ async def send_reminder(bot: Bot, reminder_type: str):
     """
     Отправляет напоминание пользователям
     
+    ВАЖНО: Напоминания работают только если current_day >= 1
+    (т.е. после первой рассылки задания в 10:00)
+    
     Args:
         bot: Экземпляр бота
         reminder_type: Тип напоминания (для логирования)
@@ -299,11 +302,18 @@ async def send_reminder(bot: Bot, reminder_type: str):
         course_state = await get_global_course_state()
         
         if not course_state or not course_state.get("is_active"):
+            logger.info(f"⏭️ Напоминание {reminder_type} пропущено: курс не активен")
             return
         
         current_day = course_state.get("current_day", 0)
         
-        if current_day < 1 or current_day > config.COURSE_DAYS:
+        # Напоминания НЕ отправляются если current_day = 0 (ждём первую рассылку)
+        if current_day < 1:
+            logger.info(f"⏭️ Напоминание {reminder_type} пропущено: current_day=0 (ожидаем первую рассылку в 10:00)")
+            return
+        
+        if current_day > config.COURSE_DAYS:
+            logger.info(f"⏭️ Напоминание {reminder_type} пропущено: курс завершен (day {current_day})")
             return
         
         # Получаем задание из таблицы digest_day_X
