@@ -494,3 +494,68 @@ async def get_all_active_users_in_course() -> list:
         print(f"Ошибка при получении активных пользователей: {e}")
         return []
 
+
+# ============================================================
+# ФУНКЦИИ ДЛЯ РАБОТЫ С MESSAGE_ID (удаление старых сообщений)
+# ============================================================
+
+async def get_user_last_task_message_id(telegram_id: int) -> int:
+    """Получает ID последнего сообщения с заданием"""
+    user = await get_user_by_telegram_id(telegram_id)
+    if user:
+        return user.get("last_task_message_id", 0) or 0
+    return 0
+
+
+async def save_user_last_task_message_id(telegram_id: int, message_id: int) -> bool:
+    """Сохраняет ID сообщения с заданием"""
+    try:
+        supabase.table(TABLE_NAME).update({
+            "last_task_message_id": message_id
+        }).eq("telegram_id", telegram_id).execute()
+        return True
+    except Exception as e:
+        print(f"Ошибка при сохранении last_task_message_id: {e}")
+        return False
+
+
+async def get_user_messages_to_delete(telegram_id: int) -> list:
+    """Получает список ID сообщений для удаления"""
+    user = await get_user_by_telegram_id(telegram_id)
+    if user:
+        messages_str = user.get("messages_to_delete", "") or ""
+        if messages_str:
+            try:
+                return [int(x) for x in messages_str.split(",") if x]
+            except:
+                return []
+    return []
+
+
+async def add_message_to_delete(telegram_id: int, message_id: int) -> bool:
+    """Добавляет ID сообщения в список для удаления"""
+    try:
+        current_messages = await get_user_messages_to_delete(telegram_id)
+        current_messages.append(message_id)
+        messages_str = ",".join(str(x) for x in current_messages)
+        
+        supabase.table(TABLE_NAME).update({
+            "messages_to_delete": messages_str
+        }).eq("telegram_id", telegram_id).execute()
+        return True
+    except Exception as e:
+        print(f"Ошибка при добавлении сообщения для удаления: {e}")
+        return False
+
+
+async def clear_messages_to_delete(telegram_id: int) -> bool:
+    """Очищает список сообщений для удаления"""
+    try:
+        supabase.table(TABLE_NAME).update({
+            "messages_to_delete": ""
+        }).eq("telegram_id", telegram_id).execute()
+        return True
+    except Exception as e:
+        print(f"Ошибка при очистке списка сообщений: {e}")
+        return False
+

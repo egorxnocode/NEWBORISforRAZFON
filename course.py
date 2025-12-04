@@ -186,6 +186,10 @@ async def send_task_to_users(bot: Bot, task_number: int):
     """
     Отправляет задание пользователям
     
+    ВАЖНО:
+    - Удаляет предыдущее сообщение с заданием
+    - Сохраняет message_id нового задания
+    
     Args:
         bot: Экземпляр бота
         task_number: Номер задания (1-14)
@@ -199,7 +203,7 @@ async def send_task_to_users(bot: Bot, task_number: int):
             return
         
         # Получаем ВСЕХ активных пользователей в курсе (не только на текущем задании!)
-        from database import get_all_active_users_in_course
+        from database import get_all_active_users_in_course, get_user_last_task_message_id, save_user_last_task_message_id
         users = await get_all_active_users_in_course()
         
         logger.info(f"📊 Получено пользователей для задания {task_number}: {len(users)}")
@@ -235,10 +239,20 @@ async def send_task_to_users(bot: Bot, task_number: int):
                 continue
             
             try:
-                # Отправляем картинку с заданием
+                # 1. Удаляем предыдущее сообщение с заданием
+                old_message_id = await get_user_last_task_message_id(telegram_id)
+                if old_message_id:
+                    try:
+                        await bot.delete_message(chat_id=telegram_id, message_id=old_message_id)
+                        logger.info(f"🗑️ Удалено старое задание (msg_id={old_message_id}) у {telegram_id}")
+                    except Exception as del_error:
+                        logger.warning(f"Не удалось удалить старое задание у {telegram_id}: {del_error}")
+                
+                # 2. Отправляем новое задание
+                sent_message = None
                 if os.path.exists(image_path):
                     photo = FSInputFile(image_path)
-                    await bot.send_photo(
+                    sent_message = await bot.send_photo(
                         chat_id=telegram_id,
                         photo=photo,
                         caption=message_text,
@@ -247,20 +261,24 @@ async def send_task_to_users(bot: Bot, task_number: int):
                 else:
                     # Если картинки нет, отправляем просто текст
                     logger.warning(f"Картинка не найдена: {image_path}")
-                    await bot.send_message(
+                    sent_message = await bot.send_message(
                         chat_id=telegram_id,
                         text=message_text,
                         reply_markup=keyboard
                     )
                 
-                # Обновляем current_task у пользователя
+                # 3. Сохраняем message_id нового задания
+                if sent_message:
+                    await save_user_last_task_message_id(telegram_id, sent_message.message_id)
+                
+                # 4. Обновляем current_task у пользователя
                 from database import supabase, TABLE_NAME
                 try:
                     logger.info(f"Обновляем current_task={task_number} для пользователя {telegram_id}")
                     response = supabase.table(TABLE_NAME).update({
                         'current_task': task_number
                     }).eq('telegram_id', telegram_id).execute()
-                    logger.info(f"✅ current_task обновлен для {telegram_id}: {response.data}")
+                    logger.info(f"✅ current_task обновлен для {telegram_id}")
                 except Exception as update_error:
                     logger.error(f"❌ Не удалось обновить current_task для {telegram_id}: {update_error}")
                 

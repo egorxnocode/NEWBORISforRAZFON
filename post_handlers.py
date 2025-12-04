@@ -18,7 +18,10 @@ from database import (
     get_user_current_task,
     mark_task_completed,
     save_post_link,
-    get_user_post_link
+    get_user_post_link,
+    add_message_to_delete,
+    get_user_messages_to_delete,
+    clear_messages_to_delete
 )
 from post_validator import validate_post_link
 from ai_helper import transcribe_voice, generate_post_with_ai
@@ -31,6 +34,25 @@ from user_states import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+async def delete_intermediate_messages(bot: Bot, user_id: int):
+    """Удаляет все промежуточные сообщения (вопросы, ответы пользователя)"""
+    try:
+        message_ids = await get_user_messages_to_delete(user_id)
+        
+        for msg_id in message_ids:
+            try:
+                await bot.delete_message(chat_id=user_id, message_id=msg_id)
+            except Exception as e:
+                logger.warning(f"Не удалось удалить сообщение {msg_id} у {user_id}: {e}")
+        
+        # Очищаем список
+        await clear_messages_to_delete(user_id)
+        logger.info(f"🗑️ Удалено {len(message_ids)} промежуточных сообщений у {user_id}")
+        
+    except Exception as e:
+        logger.error(f"Ошибка при удалении промежуточных сообщений: {e}")
 
 
 async def handle_submit_task_button(user_id: int, message: Message, bot: Bot):
@@ -63,10 +85,11 @@ async def handle_submit_task_button(user_id: int, message: Message, bot: Bot):
     # Устанавливаем состояние ожидания ссылки
     set_user_state(user_id, "waiting_post_link", current_task=current_task)
     
-    # Просим ссылку
-    await message.answer(
+    # Просим ссылку и сохраняем ID сообщения для удаления
+    sent_msg = await message.answer(
         messages.MSG_SUBMIT_POST_LINK.format(channel=user_channel)
     )
+    await add_message_to_delete(user_id, sent_msg.message_id)
 
 
 async def handle_post_link(message: Message, bot: Bot):
@@ -75,6 +98,9 @@ async def handle_post_link(message: Message, bot: Bot):
     """
     user_id = message.from_user.id
     link = message.text.strip()
+    
+    # Сохраняем ID сообщения пользователя для удаления
+    await add_message_to_delete(user_id, message.message_id)
     
     # Получаем состояние пользователя
     user_state = get_user_state(user_id)
@@ -97,25 +123,28 @@ async def handle_post_link(message: Message, bot: Bot):
     )
     
     if not is_valid:
-        # Обрабатываем ошибки
+        # Обрабатываем ошибки - сохраняем для удаления
         if error_type == 'invalid_link':
-            await message.answer(messages.MSG_INVALID_POST_LINK)
+            err_msg = await message.answer(messages.MSG_INVALID_POST_LINK)
+            await add_message_to_delete(user_id, err_msg.message_id)
         elif error_type == 'wrong_channel':
-            await message.answer(
+            err_msg = await message.answer(
                 messages.MSG_WRONG_CHANNEL.format(
                     your_channel=user_channel_clean,
                     post_channel=post_channel
                 )
             )
+            await add_message_to_delete(user_id, err_msg.message_id)
         elif error_type == 'too_old':
             now_time = datetime.now().strftime("%d.%m.%Y %H:%M")
             post_time = post_date.strftime("%d.%m.%Y %H:%M") if post_date else "неизвестно"
-            await message.answer(
+            err_msg = await message.answer(
                 messages.MSG_POST_TOO_OLD.format(
                     post_time=post_time,
                     now_time=now_time
                 )
             )
+            await add_message_to_delete(user_id, err_msg.message_id)
         return
     
     # Ссылка валидна, сохраняем
@@ -130,6 +159,9 @@ async def handle_post_link(message: Message, bot: Bot):
     
     # Очищаем состояние
     clear_user_state(user_id)
+    
+    # Удаляем все промежуточные сообщения (вопросы, запросы ссылок)
+    await delete_intermediate_messages(bot, user_id)
     
     # Отправляем подтверждение с картинкой
     if os.path.exists(config.POST_ACCEPTED_IMAGE):
@@ -180,14 +212,16 @@ async def handle_write_post_button(user_id: int, message: Message, bot: Bot):
         digest_data=digest_data
     )
     
-    # Отправляем приветственное сообщение
-    await message.answer(messages.MSG_WRITE_POST_START)
+    # Отправляем приветственное сообщение (сохраняем для удаления)
+    intro_msg = await message.answer(messages.MSG_WRITE_POST_START)
+    await add_message_to_delete(user_id, intro_msg.message_id)
     
-    # Задаем первый вопрос
+    # Задаем первый вопрос (сохраняем для удаления)
     question_1 = digest_data.get('vopros_1', 'Вопрос не найден')
-    await message.answer(
+    q1_msg = await message.answer(
         messages.MSG_QUESTION_1.format(question=question_1)
     )
+    await add_message_to_delete(user_id, q1_msg.message_id)
 
 
 async def handle_question_answer(message: Message, bot: Bot):
@@ -201,6 +235,9 @@ async def handle_question_answer(message: Message, bot: Bot):
     if user_state.state not in ["question_1", "question_2", "question_3"]:
         return
     
+    # Сохраняем ID сообщения пользователя для удаления
+    await add_message_to_delete(user_id, message.message_id)
+    
     # Получаем ответ
     answer_text = None
     
@@ -208,7 +245,8 @@ async def handle_question_answer(message: Message, bot: Bot):
         answer_text = message.text
     elif message.voice:
         # Голосовое сообщение - транскрибируем
-        await message.answer(messages.MSG_VOICE_TRANSCRIBING)
+        trans_msg = await message.answer(messages.MSG_VOICE_TRANSCRIBING)
+        await add_message_to_delete(user_id, trans_msg.message_id)
         
         # Скачиваем голосовое сообщение
         voice_file = await bot.get_file(message.voice.file_id)
@@ -225,7 +263,8 @@ async def handle_question_answer(message: Message, bot: Bot):
             pass
         
         if not answer_text:
-            await message.answer(messages.MSG_VOICE_TRANSCRIPTION_ERROR)
+            err_msg = await message.answer(messages.MSG_VOICE_TRANSCRIPTION_ERROR)
+            await add_message_to_delete(user_id, err_msg.message_id)
             return
     
     if not answer_text:
@@ -237,20 +276,22 @@ async def handle_question_answer(message: Message, bot: Bot):
     
     # Переходим к следующему вопросу
     if question_num < 3:
-        await message.answer(messages.MSG_ANSWER_ACCEPTED)
+        acc_msg = await message.answer(messages.MSG_ANSWER_ACCEPTED)
+        await add_message_to_delete(user_id, acc_msg.message_id)
         
         next_question_num = question_num + 1
         set_user_state(user_id, f"question_{next_question_num}")
         
-        # Задаем следующий вопрос
+        # Задаем следующий вопрос (сохраняем для удаления)
         digest_data = user_state.digest_data
         question_key = f"vopros_{next_question_num}"
         question = digest_data.get(question_key, 'Вопрос не найден')
         
         if next_question_num == 2:
-            await message.answer(messages.MSG_QUESTION_2.format(question=question))
+            q_msg = await message.answer(messages.MSG_QUESTION_2.format(question=question))
         else:
-            await message.answer(messages.MSG_QUESTION_3.format(question=question))
+            q_msg = await message.answer(messages.MSG_QUESTION_3.format(question=question))
+        await add_message_to_delete(user_id, q_msg.message_id)
     else:
         # Все вопросы заданы, генерируем пост
         await generate_post(message, bot)
@@ -272,8 +313,9 @@ async def generate_post(message: Message, bot: Bot):
     # Устанавливаем состояние генерации
     set_user_state(user_id, "generating_post")
     
-    # Сообщаем пользователю
-    await message.answer(messages.MSG_GENERATING_POST)
+    # Сообщаем пользователю (сохраняем для удаления)
+    gen_msg = await message.answer(messages.MSG_GENERATING_POST)
+    await add_message_to_delete(user_id, gen_msg.message_id)
     
     # Генерируем пост
     generated_text = await generate_post_with_ai(
@@ -288,16 +330,21 @@ async def generate_post(message: Message, bot: Bot):
     if not generated_text:
         # Ошибка или таймаут
         clear_user_state(user_id)
-        await message.answer(messages.MSG_GENERATION_TIMEOUT)
+        err_msg = await message.answer(messages.MSG_GENERATION_TIMEOUT)
+        await add_message_to_delete(user_id, err_msg.message_id)
         
         # Предлагаем попробовать снова
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text=messages.BTN_WRITE_POST, callback_data="write_post")]
         ])
-        await message.answer("Попробуйте еще раз:", reply_markup=keyboard)
+        retry_msg = await message.answer("Попробуйте еще раз:", reply_markup=keyboard)
+        await add_message_to_delete(user_id, retry_msg.message_id)
         return
     
-    # Отправляем готовый пост
+    # Удаляем все промежуточные сообщения (вопросы и ответы)
+    await delete_intermediate_messages(bot, user_id)
+    
+    # Отправляем готовый пост (это остаётся в чате!)
     await message.answer(
         messages.MSG_POST_GENERATED.format(post_text=generated_text)
     )

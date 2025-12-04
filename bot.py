@@ -629,8 +629,69 @@ async def handle_text_message(message: Message):
         # Ожидаем ссылку на канал
         await handle_channel_input(message, text)
     elif state == UserState.REGISTERED:
-        # Пользователь уже зарегистрирован
-        await message.answer(messages.MSG_ALREADY_REGISTERED)
+        # Пользователь зарегистрирован - проверяем состояние курса
+        await handle_registered_user_message(message, user_id)
+
+
+async def handle_registered_user_message(message: Message, user_id: int):
+    """
+    Обработка сообщений от зарегистрированных пользователей
+    Отвечает в зависимости от состояния курса
+    """
+    from database import get_global_course_state, get_user_course_state, get_user_current_task
+    
+    # Проверяем глобальное состояние курса
+    global_state = await get_global_course_state()
+    
+    if not global_state or not global_state.get("is_active"):
+        # Курс не активен - ждём старта
+        await message.answer(messages.MSG_STATE_WAITING_COURSE_START)
+        return
+    
+    current_day = global_state.get("current_day", 0)
+    
+    if current_day == 0:
+        # Курс запущен, но ждём первую рассылку в 10:00
+        await message.answer(messages.MSG_STATE_WAITING_COURSE_START)
+        return
+    
+    # Проверяем состояние пользователя в курсе
+    user_course_state = await get_user_course_state(user_id)
+    
+    if user_course_state == CourseState.EXCLUDED:
+        # Пользователь исключён
+        await message.answer(messages.MSG_STATE_EXCLUDED)
+        return
+    
+    if user_course_state == CourseState.COMPLETED:
+        # Пользователь завершил курс
+        await message.answer(messages.MSG_STATE_COURSE_FINISHED)
+        return
+    
+    if user_course_state == CourseState.NOT_STARTED:
+        # Пользователь не участвует в курсе
+        await message.answer(messages.MSG_STATE_WAITING_COURSE_START)
+        return
+    
+    # Пользователь в курсе (in_progress или waiting_task_X)
+    user_current_task = await get_user_current_task(user_id)
+    
+    if user_current_task == current_day:
+        # Получил задание, но ещё не сдал - напоминаем про кнопки
+        from course import get_task_keyboard
+        keyboard = get_task_keyboard()
+        await message.answer(
+            messages.MSG_STATE_HAS_TASK_NOT_STARTED.format(day=current_day),
+            reply_markup=keyboard
+        )
+    elif user_current_task > current_day:
+        # Уже сдал задание - ждёт следующее
+        await message.answer(
+            messages.MSG_STATE_TASK_COMPLETED.format(day=current_day)
+        )
+    else:
+        # current_task == 0 или < current_day - что-то странное
+        await message.answer(messages.MSG_STATE_WAITING_COURSE_START)
 
 
 @dp.message(F.voice)
