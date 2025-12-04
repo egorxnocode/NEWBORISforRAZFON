@@ -271,16 +271,17 @@ async def send_task_to_users(bot: Bot, task_number: int):
                 if sent_message:
                     await save_user_last_task_message_id(telegram_id, sent_message.message_id)
                 
-                # 4. Обновляем current_task у пользователя
-                from database import supabase, TABLE_NAME
+                # 4. Обновляем current_task и course_state у пользователя
+                from database import supabase, TABLE_NAME, CourseState
                 try:
-                    logger.info(f"Обновляем current_task={task_number} для пользователя {telegram_id}")
+                    logger.info(f"Обновляем current_task={task_number}, course_state=in_progress для {telegram_id}")
                     response = supabase.table(TABLE_NAME).update({
-                        'current_task': task_number
+                        'current_task': task_number,
+                        'course_state': CourseState.IN_PROGRESS  # Пользователь получил задание
                     }).eq('telegram_id', telegram_id).execute()
-                    logger.info(f"✅ current_task обновлен для {telegram_id}")
+                    logger.info(f"✅ current_task и course_state обновлены для {telegram_id}")
                 except Exception as update_error:
-                    logger.error(f"❌ Не удалось обновить current_task для {telegram_id}: {update_error}")
+                    logger.error(f"❌ Не удалось обновить данные для {telegram_id}: {update_error}")
                 
                 success_count += 1
                 logger.info(f"Задание {task_number} отправлено пользователю {telegram_id}")

@@ -510,12 +510,13 @@ async def handle_send_digest_one(message: Message, current_day: int, target_user
                 reply_markup=keyboard
             )
         
-        # ВАЖНО: Обновляем current_task пользователя (как в send_task_to_users)
+        # ВАЖНО: Обновляем current_task и course_state (как в send_task_to_users)
         supabase.table(TABLE_NAME).update({
-            'current_task': current_day
+            'current_task': current_day,
+            'course_state': CourseState.IN_PROGRESS  # Пользователь получил задание
         }).eq('telegram_id', target_user_id).execute()
         
-        logger.info(f"✅ current_task={current_day} установлен для {target_user_id}")
+        logger.info(f"✅ current_task={current_day}, course_state=in_progress для {target_user_id}")
         
         # Подтверждаем админу
         await message.answer(
@@ -637,6 +638,10 @@ async def handle_registered_user_message(message: Message, user_id: int):
     """
     Обработка сообщений от зарегистрированных пользователей
     Отвечает в зависимости от состояния курса
+    
+    Логика:
+    - course_state = in_progress → получил задание, не сдал → "используйте кнопки"
+    - course_state = waiting_task_X → сдал задание, ждёт следующее → "ждите 10:00"
     """
     from database import get_global_course_state, get_user_course_state, get_user_current_task
     
@@ -673,24 +678,25 @@ async def handle_registered_user_message(message: Message, user_id: int):
         await message.answer(messages.MSG_STATE_WAITING_COURSE_START)
         return
     
-    # Пользователь в курсе (in_progress или waiting_task_X)
-    user_current_task = await get_user_current_task(user_id)
-    
-    if user_current_task == current_day:
-        # Получил задание, но ещё не сдал - напоминаем про кнопки
+    # Проверяем course_state для определения статуса задания
+    if user_course_state == CourseState.IN_PROGRESS:
+        # Пользователь ПОЛУЧИЛ задание и ещё НЕ сдал - напоминаем про кнопки
         from course import get_task_keyboard
         keyboard = get_task_keyboard()
+        user_current_task = await get_user_current_task(user_id)
         await message.answer(
-            messages.MSG_STATE_HAS_TASK_NOT_STARTED.format(day=current_day),
+            messages.MSG_STATE_HAS_TASK_NOT_STARTED.format(day=user_current_task),
             reply_markup=keyboard
         )
-    elif user_current_task > current_day:
-        # Уже сдал задание - ждёт следующее
+    elif user_course_state.startswith("waiting_task"):
+        # Пользователь СДАЛ задание и ЖДЁТ следующее в 10:00
+        # Извлекаем номер выполненного задания
+        completed_day = current_day if current_day > 0 else 1
         await message.answer(
-            messages.MSG_STATE_TASK_COMPLETED.format(day=current_day)
+            messages.MSG_STATE_TASK_COMPLETED.format(day=completed_day)
         )
     else:
-        # current_task == 0 или < current_day - что-то странное
+        # Что-то странное
         await message.answer(messages.MSG_STATE_WAITING_COURSE_START)
 
 
