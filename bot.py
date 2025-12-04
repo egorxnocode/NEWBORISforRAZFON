@@ -212,7 +212,13 @@ async def cmd_razgon_stop(message: Message):
 
 @dp.message(Command("send_digest"))
 async def cmd_send_digest(message: Message):
-    """Обработчик команды /send_digest - отправка задания (только для админов)"""
+    """
+    Обработчик команды /send_digest - отправка задания (только для админов)
+    
+    ВАЖНО: Работает ИДЕНТИЧНО рассылке в 10:00!
+    - Если current_day=0 → увеличивает до 1 и отправляет задание 1
+    - Обновляет current_task у пользователей
+    """
     user_id = message.from_user.id
     
     # Проверяем, является ли пользователь админом
@@ -231,7 +237,7 @@ async def cmd_send_digest(message: Message):
     argument = parts[1].strip()
     
     # Проверяем, активен ли курс
-    from database import get_global_course_state
+    from database import get_global_course_state, update_global_course_state
     course_state = await get_global_course_state()
     
     if not course_state or not course_state.get("is_active"):
@@ -239,6 +245,12 @@ async def cmd_send_digest(message: Message):
         return
     
     current_day = course_state.get("current_day", 0)
+    
+    # ВАЖНО: Если current_day=0, увеличиваем до 1 (как в scheduled_send_task)
+    if current_day == 0:
+        logger.info("🚀 /send_digest: current_day=0, увеличиваем до 1")
+        current_day = 1
+        await update_global_course_state(is_active=True, current_day=1)
     
     if argument.lower() == "all":
         # Отправка всем пользователям в курсе
@@ -431,8 +443,13 @@ async def handle_send_digest_all(message: Message, current_day: int):
 
 
 async def handle_send_digest_one(message: Message, current_day: int, target_user_id: int):
-    """Отправка задания одному пользователю"""
-    from database import get_user_by_telegram_id, get_user_course_state, get_task_by_number
+    """
+    Отправка задания одному пользователю
+    
+    ВАЖНО: Работает как send_task_to_users, но для одного пользователя
+    - Обновляет current_task пользователя
+    """
+    from database import get_user_by_telegram_id, get_user_course_state, get_task_by_number, supabase, TABLE_NAME
     from course import get_task_keyboard
     
     # Проверяем, существует ли пользователь
@@ -492,6 +509,13 @@ async def handle_send_digest_one(message: Message, current_day: int, target_user
                 text=message_text,
                 reply_markup=keyboard
             )
+        
+        # ВАЖНО: Обновляем current_task пользователя (как в send_task_to_users)
+        supabase.table(TABLE_NAME).update({
+            'current_task': current_day
+        }).eq('telegram_id', target_user_id).execute()
+        
+        logger.info(f"✅ current_task={current_day} установлен для {target_user_id}")
         
         # Подтверждаем админу
         await message.answer(
