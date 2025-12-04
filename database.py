@@ -448,28 +448,48 @@ async def is_user_blocked(telegram_id: int) -> bool:
 async def get_all_active_users_in_course() -> list:
     """
     Получает ВСЕХ активных пользователей в курсе (для рассылки в 10:00)
-    Включая тех, кто не сдал предыдущее задание
+    
+    Включает пользователей с course_state:
+    - in_progress (не сдал текущее задание)
+    - waiting_task_X (сдал задание, ждёт следующее)
+    
+    НЕ включает:
+    - not_started
+    - excluded (исключён за штрафы)
+    - completed (завершил курс)
     """
     try:
-        # Получаем всех, кто in_progress
-        print(f"[DEBUG] Запрос пользователей с course_state = {CourseState.IN_PROGRESS}")
-        response = supabase.table(TABLE_NAME).select("*").eq("course_state", CourseState.IN_PROGRESS).execute()
+        # Получаем ВСЕХ пользователей
+        print(f"[DEBUG] Запрос всех пользователей для фильтрации")
+        response = supabase.table(TABLE_NAME).select("*").execute()
         
-        print(f"[DEBUG] Supabase вернул {len(response.data) if response.data else 0} пользователей")
+        if not response.data:
+            print(f"[DEBUG] Нет пользователей в БД")
+            return []
         
-        # Фильтруем заблокированных вручную (если колонка blocked_at существует)
-        if response.data:
-            users = []
-            for user in response.data:
-                # Пропускаем если пользователь заблокирован
-                if user.get('blocked_at') is None:
-                    users.append(user)
-                    print(f"[DEBUG] Добавлен пользователь {user.get('telegram_id')}, current_task={user.get('current_task')}")
-                else:
-                    print(f"[DEBUG] Пропущен заблокированный пользователь {user.get('telegram_id')}")
-            print(f"[DEBUG] После фильтрации осталось {len(users)} пользователей")
-            return users
-        return []
+        print(f"[DEBUG] Всего пользователей в БД: {len(response.data)}")
+        
+        users = []
+        for user in response.data:
+            course_state = user.get('course_state', CourseState.NOT_STARTED)
+            
+            # Пропускаем неактивных
+            if course_state in [CourseState.NOT_STARTED, CourseState.EXCLUDED, CourseState.COMPLETED]:
+                print(f"[DEBUG] Пропущен {user.get('telegram_id')}: course_state={course_state}")
+                continue
+            
+            # Пропускаем заблокированных
+            if user.get('blocked_at') is not None:
+                print(f"[DEBUG] Пропущен заблокированный {user.get('telegram_id')}")
+                continue
+            
+            # Активный пользователь (in_progress или waiting_task_X)
+            users.append(user)
+            print(f"[DEBUG] ✅ Добавлен {user.get('telegram_id')}: course_state={course_state}, current_task={user.get('current_task')}")
+        
+        print(f"[DEBUG] Активных пользователей: {len(users)}")
+        return users
+        
     except Exception as e:
         print(f"Ошибка при получении активных пользователей: {e}")
         return []
