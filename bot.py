@@ -149,18 +149,19 @@ async def cmd_start(message: Message):
         await message.answer(messages.MSG_ALREADY_REGISTERED)
         return
     
-    # Отправляем приветственную картинку
+    # Отправляем приветственную картинку с текстом
     if os.path.exists(config.WELCOME_IMAGE_PATH):
         try:
             photo = FSInputFile(config.WELCOME_IMAGE_PATH)
-            await message.answer_photo(photo)
+            await message.answer_photo(photo, caption=messages.MSG_ASK_EMAIL)
         except Exception as e:
             logger.error(f"Ошибка при отправке приветственной картинки: {e}")
+            # Если картинка не отправилась, отправляем только текст
+            await message.answer(messages.MSG_ASK_EMAIL)
     else:
         logger.warning(f"Приветственная картинка не найдена: {config.WELCOME_IMAGE_PATH}")
-    
-    # Запрашиваем email
-    await message.answer(messages.MSG_ASK_EMAIL)
+        # Отправляем только текст
+        await message.answer(messages.MSG_ASK_EMAIL)
     
     # Устанавливаем состояние ожидания email
     if user:
@@ -716,16 +717,18 @@ async def handle_channel_input(message: Message, text: str):
     success = await update_user_channel(user_id, channel_link)
     
     if success:
-        # Отправляем сообщение об успехе
-        await message.answer(messages.MSG_CHANNEL_SUCCESS)
-        
-        # Отправляем финальную картинку (если есть)
+        # Отправляем финальную картинку с текстом об успехе
         if os.path.exists(config.FINAL_IMAGE_PATH):
             try:
                 photo = FSInputFile(config.FINAL_IMAGE_PATH)
-                await message.answer_photo(photo=photo)
+                await message.answer_photo(photo=photo, caption=messages.MSG_CHANNEL_SUCCESS)
             except Exception as e:
                 logger.error(f"Ошибка при отправке финальной картинки: {e}")
+                # Если картинка не отправилась, отправляем только текст
+                await message.answer(messages.MSG_CHANNEL_SUCCESS)
+        else:
+            # Если картинки нет, отправляем только текст
+            await message.answer(messages.MSG_CHANNEL_SUCCESS)
         
         # Отправляем видео с инструкцией
         if os.path.exists(config.INSTRUCTION_VIDEO_PATH):
