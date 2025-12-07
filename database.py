@@ -42,12 +42,14 @@ async def check_email_exists(email: str) -> bool:
     Проверяет, существует ли email в базе данных
     
     Args:
-        email: Email для проверки
+        email: Email для проверки (приводится к lowercase)
         
     Returns:
         True если email существует, False если нет
     """
     try:
+        # Приводим к нижнему регистру для точного совпадения с БД
+        email = email.lower().strip()
         response = supabase.table(TABLE_NAME).select("email").eq("email", email).execute()
         return len(response.data) > 0
     except Exception as e:
@@ -89,7 +91,7 @@ async def update_user_data(
     Обновляет данные пользователя после ввода email
     
     Args:
-        email: Email пользователя
+        email: Email пользователя (приводится к lowercase)
         telegram_id: Telegram ID
         first_name: Имя пользователя
         username: Username пользователя (опционально)
@@ -99,6 +101,8 @@ async def update_user_data(
         True если обновление прошло успешно
     """
     try:
+        # Приводим к нижнему регистру для точного совпадения с БД
+        email = email.lower().strip()
         response = supabase.table(TABLE_NAME).update({
             "telegram_id": telegram_id,
             "first_name": first_name,

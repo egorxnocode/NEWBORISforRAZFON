@@ -652,6 +652,9 @@ async def handle_email_input(message: Message, email: str):
     """Обработка ввода email"""
     user_id = message.from_user.id
     
+    # Приводим email к нижнему регистру (в БД хранятся в lowercase)
+    email = email.lower().strip()
+    
     # Проверяем валидность email
     if not is_valid_email(email):
         await message.answer(messages.MSG_INVALID_EMAIL)
