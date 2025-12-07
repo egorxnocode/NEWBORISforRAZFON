@@ -149,15 +149,15 @@ async def cmd_start(message: Message):
         await message.answer(messages.MSG_ALREADY_REGISTERED)
         return
     
-    # Отправляем приветственный видеокружок
-    if os.path.exists(config.WELCOME_VIDEO_NOTE_PATH):
+    # Отправляем приветственную картинку
+    if os.path.exists(config.WELCOME_IMAGE_PATH):
         try:
-            video_note = FSInputFile(config.WELCOME_VIDEO_NOTE_PATH)
-            await message.answer_video_note(video_note)
+            photo = FSInputFile(config.WELCOME_IMAGE_PATH)
+            await message.answer_photo(photo)
         except Exception as e:
-            logger.error(f"Ошибка при отправке видеокружка: {e}")
+            logger.error(f"Ошибка при отправке приветственной картинки: {e}")
     else:
-        logger.warning(f"Видеокружок не найден: {config.WELCOME_VIDEO_NOTE_PATH}")
+        logger.warning(f"Приветственная картинка не найдена: {config.WELCOME_IMAGE_PATH}")
     
     # Запрашиваем email
     await message.answer(messages.MSG_ASK_EMAIL)

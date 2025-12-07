@@ -14,7 +14,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 # ============================================================
 # ПУТИ К МЕДИАФАЙЛАМ - РЕГИСТРАЦИЯ
 # ============================================================
-WELCOME_VIDEO_NOTE_PATH = "media/welcome_video.mp4"  # Путь к видеокружку
+WELCOME_IMAGE_PATH = "media/welcome.jpg"  # Путь к приветственной картинке
 EMAIL_REQUEST_IMAGE_PATH = "media/email_request.jpg"  # Картинка при запросе email (опционально)
 CHANNEL_REQUEST_IMAGE_PATH = "media/channel_request.jpg"  # Картинка при запросе канала
 FINAL_IMAGE_PATH = "media/final_message.jpg"  # Картинка после успешной регистрации
