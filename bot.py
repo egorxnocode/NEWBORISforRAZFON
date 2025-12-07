@@ -730,11 +730,16 @@ async def handle_channel_input(message: Message, text: str):
             # Если картинки нет, отправляем только текст
             await message.answer(messages.MSG_CHANNEL_SUCCESS)
         
-        # Отправляем видео с инструкцией
+        # Отправляем видео с инструкцией (формат 1920x1080)
         if os.path.exists(config.INSTRUCTION_VIDEO_PATH):
             try:
                 video = FSInputFile(config.INSTRUCTION_VIDEO_PATH)
-                await message.answer_video(video=video)
+                await message.answer_video(
+                    video=video,
+                    width=1920,
+                    height=1080,
+                    supports_streaming=True
+                )
             except Exception as e:
                 logger.error(f"Ошибка при отправке видео: {e}")
         else:
