@@ -919,6 +919,25 @@ async def main():
     logger.info(f"Администраторы: {config.ADMIN_IDS}")
     logger.info("=" * 50)
     
+    # Проверяем и восстанавливаем состояние курса из БД
+    from database import ensure_course_state_exists, get_global_course_state
+    await ensure_course_state_exists()
+    
+    # Логируем текущее состояние курса
+    course_state = await get_global_course_state()
+    if course_state:
+        is_active = course_state.get("is_active", False)
+        current_day = course_state.get("current_day", 0)
+        logger.info("=" * 50)
+        logger.info(f"📊 СОСТОЯНИЕ КУРСА ИЗ БД:")
+        logger.info(f"   is_active: {is_active}")
+        logger.info(f"   current_day: {current_day}")
+        if is_active:
+            logger.info(f"   ✅ Курс АКТИВЕН, продолжаем с дня {current_day}")
+        else:
+            logger.info(f"   ⏸️ Курс НЕ активен")
+        logger.info("=" * 50)
+    
     # Настраиваем планировщик
     setup_scheduler()
     

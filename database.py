@@ -212,6 +212,35 @@ async def get_global_course_state() -> Optional[Dict[str, Any]]:
         return None
 
 
+async def ensure_course_state_exists() -> bool:
+    """
+    Проверяет наличие записи состояния курса и создаёт её, если нет.
+    Вызывается при старте бота для гарантии целостности БД.
+    """
+    try:
+        response = supabase.table(COURSE_STATE_TABLE).select("*").eq("id", 1).execute()
+        
+        if not response.data or len(response.data) == 0:
+            # Записи нет - создаём с дефолтными значениями
+            print("⚠️ Запись course_state не найдена, создаём...")
+            supabase.table(COURSE_STATE_TABLE).insert({
+                "id": 1,
+                "is_active": False,
+                "current_day": 0
+            }).execute()
+            print("✅ Запись course_state создана")
+            return True
+        
+        # Запись уже существует
+        state = response.data[0]
+        print(f"✅ Состояние курса загружено из БД: is_active={state.get('is_active')}, current_day={state.get('current_day')}")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Ошибка при проверке course_state: {e}")
+        return False
+
+
 async def update_global_course_state(is_active: bool, current_day: int, start_date: str = None) -> bool:
     """Обновляет глобальное состояние курса"""
     try:
