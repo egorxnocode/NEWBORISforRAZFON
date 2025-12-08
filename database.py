@@ -35,6 +35,7 @@ class CourseState:
     WAITING_TASK = "waiting_task_{}"  # waiting_task_1, waiting_task_2 и т.д.
     COMPLETED = "completed"
     EXCLUDED = "excluded"
+    LIMITED = "limited"  # Ограниченный участник (опоздал на день 2+, только пишет посты)
 
 
 async def check_email_exists(email: str) -> bool:

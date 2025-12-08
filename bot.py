@@ -39,6 +39,7 @@ from course import (
     stop_course,
     send_task_to_users,
     send_task_to_single_user,
+    send_task_to_limited_user,
     send_reminder,
     check_tasks_completion,
     advance_course_day,
@@ -722,54 +723,91 @@ async def handle_channel_input(message: Message, text: str):
     success = await update_user_channel(user_id, channel_link)
     
     if success:
-        # Отправляем финальную картинку с текстом об успехе
-        if os.path.exists(config.FINAL_IMAGE_PATH):
-            try:
-                photo = FSInputFile(config.FINAL_IMAGE_PATH)
-                await message.answer_photo(photo=photo, caption=messages.MSG_CHANNEL_SUCCESS)
-            except Exception as e:
-                logger.error(f"Ошибка при отправке финальной картинки: {e}")
-                # Если картинка не отправилась, отправляем только текст
-                await message.answer(messages.MSG_CHANNEL_SUCCESS)
-        else:
-            # Если картинки нет, отправляем только текст
-            await message.answer(messages.MSG_CHANNEL_SUCCESS)
-        
-        # Отправляем видео с инструкцией (формат 1920x1080)
-        if os.path.exists(config.INSTRUCTION_VIDEO_PATH):
-            try:
-                video = FSInputFile(config.INSTRUCTION_VIDEO_PATH)
-                await message.answer_video(
-                    video=video,
-                    width=1920,
-                    height=1080,
-                    supports_streaming=True
-                )
-            except Exception as e:
-                logger.error(f"Ошибка при отправке видео: {e}")
-        else:
-            logger.warning(f"Видео с инструкцией не найдено: {config.INSTRUCTION_VIDEO_PATH}")
-        
         # ============================================================
         # СИСТЕМА ДЛЯ ОПОЗДАВШИХ
-        # Если курс уже активен (current_day >= 1), отправляем первое задание
         # ============================================================
         course_state = await get_global_course_state()
+        is_course_active = course_state and course_state.get("is_active")
+        current_day = course_state.get("current_day", 0) if course_state else 0
         
-        if course_state and course_state.get("is_active"):
-            current_day = course_state.get("current_day", 0)
+        # Определяем тип участника
+        # current_day >= 2 → ОГРАНИЧЕННЫЙ участник (limited)
+        # current_day == 1 → полноценный опоздавший (успел на первый день)
+        # current_day == 0 или курс не активен → обычный участник
+        is_limited_user = is_course_active and current_day >= 2
+        is_late_first_day = is_course_active and current_day == 1
+        
+        if is_limited_user:
+            # ============================================================
+            # ОГРАНИЧЕННЫЙ УЧАСТНИК (опоздал на день 2+)
+            # НЕ получает информацию о чате/канале, только пишет посты
+            # ============================================================
+            logger.info(f"📥 LIMITED участник {user_id}: курс на дне {current_day}")
             
-            if current_day >= 1:
-                # Курс идёт, отправляем первое задание опоздавшему
-                logger.info(f"📥 Опоздавший {user_id}: курс активен (день {current_day}), отправляем задание 1")
+            # Отправляем специальное приветствие для limited
+            await message.answer(messages.MSG_LIMITED_REGISTRATION)
+            
+            # Устанавливаем статус LIMITED
+            from database import supabase, TABLE_NAME, CourseState
+            try:
+                supabase.table(TABLE_NAME).update({
+                    'course_state': CourseState.LIMITED,
+                    'current_task': current_day  # Текущий день курса
+                }).eq('telegram_id', user_id).execute()
+                logger.info(f"✅ Установлен статус LIMITED для {user_id}")
+            except Exception as e:
+                logger.error(f"❌ Ошибка установки LIMITED статуса: {e}")
+            
+            await asyncio.sleep(1)
+            
+            # Отправляем ТЕКУЩЕЕ задание (с ограниченной клавиатурой)
+            from course import send_task_to_limited_user
+            task_sent = await send_task_to_limited_user(bot, user_id, current_day)
+            
+            if task_sent:
+                logger.info(f"✅ LIMITED {user_id}: отправлено задание дня {current_day}")
+            else:
+                logger.error(f"❌ Не удалось отправить задание LIMITED {user_id}")
+        
+        else:
+            # ============================================================
+            # ОБЫЧНЫЙ ИЛИ ПОЛНОЦЕННЫЙ ОПОЗДАВШИЙ
+            # Получает всю информацию о чате/канале
+            # ============================================================
+            
+            # Отправляем финальную картинку с текстом об успехе
+            if os.path.exists(config.FINAL_IMAGE_PATH):
+                try:
+                    photo = FSInputFile(config.FINAL_IMAGE_PATH)
+                    await message.answer_photo(photo=photo, caption=messages.MSG_CHANNEL_SUCCESS)
+                except Exception as e:
+                    logger.error(f"Ошибка при отправке финальной картинки: {e}")
+                    await message.answer(messages.MSG_CHANNEL_SUCCESS)
+            else:
+                await message.answer(messages.MSG_CHANNEL_SUCCESS)
+            
+            # Отправляем видео с инструкцией (формат 1920x1080)
+            if os.path.exists(config.INSTRUCTION_VIDEO_PATH):
+                try:
+                    video = FSInputFile(config.INSTRUCTION_VIDEO_PATH)
+                    await message.answer_video(
+                        video=video,
+                        width=1920,
+                        height=1080,
+                        supports_streaming=True
+                    )
+                except Exception as e:
+                    logger.error(f"Ошибка при отправке видео: {e}")
+            else:
+                logger.warning(f"Видео с инструкцией не найдено: {config.INSTRUCTION_VIDEO_PATH}")
+            
+            # Если опоздал на первый день - отправляем первое задание
+            if is_late_first_day:
+                logger.info(f"📥 Опоздавший {user_id}: курс на дне 1, отправляем задание 1")
                 
-                # Отправляем сообщение для опоздавших
                 await message.answer(messages.MSG_LATE_REGISTRATION)
-                
-                # Небольшая пауза перед отправкой задания
                 await asyncio.sleep(1)
                 
-                # Отправляем ПЕРВОЕ задание (всегда задание 1 для новых участников)
                 task_sent = await send_task_to_single_user(bot, user_id, task_number=1)
                 
                 if task_sent:
@@ -777,9 +815,7 @@ async def handle_channel_input(message: Message, text: str):
                 else:
                     logger.error(f"❌ Не удалось отправить задание опоздавшему {user_id}")
             else:
-                logger.info(f"📝 Пользователь {user_id} зарегистрировался, курс активен но ещё не начался (day={current_day})")
-        else:
-            logger.info(f"📝 Пользователь {user_id} зарегистрировался до старта курса")
+                logger.info(f"📝 Пользователь {user_id} зарегистрировался до старта курса")
     else:
         await message.answer("❌ Произошла ошибка. Попробуйте еще раз.")
 

@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_task_keyboard() -> InlineKeyboardMarkup:
-    """Создает клавиатуру с кнопками для задания"""
+    """Создает клавиатуру с кнопками для задания (полный функционал)"""
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(
@@ -46,6 +46,19 @@ def get_task_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton(
                 text=messages.BTN_SUBMIT_TASK,
                 callback_data="submit_task"
+            )
+        ]
+    ])
+    return keyboard
+
+
+def get_limited_keyboard() -> InlineKeyboardMarkup:
+    """Создает клавиатуру для ограниченных участников (только кнопка 'Написать пост')"""
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(
+                text=messages.BTN_WRITE_POST,
+                callback_data="write_post"
             )
         ]
     ])
@@ -238,6 +251,18 @@ async def send_task_to_users(bot: Bot, task_number: int):
             if not telegram_id:
                 continue
             
+            # Проверяем, является ли пользователь ограниченным участником
+            user_course_state = user.get("course_state", "")
+            is_limited = (user_course_state == CourseState.LIMITED)
+            
+            # Выбираем сообщение и клавиатуру в зависимости от типа участника
+            if is_limited:
+                user_message = messages.MSG_TASK_LIMITED.format(day=task_number, zadanie=zadanie_text)
+                user_keyboard = get_limited_keyboard()
+            else:
+                user_message = message_text
+                user_keyboard = keyboard
+            
             try:
                 # 1. Удаляем предыдущее сообщение с заданием
                 old_message_id = await get_user_last_task_message_id(telegram_id)
@@ -255,31 +280,39 @@ async def send_task_to_users(bot: Bot, task_number: int):
                     sent_message = await bot.send_photo(
                         chat_id=telegram_id,
                         photo=photo,
-                        caption=message_text,
-                        reply_markup=keyboard
+                        caption=user_message,
+                        reply_markup=user_keyboard
                     )
                 else:
                     # Если картинки нет, отправляем просто текст
                     logger.warning(f"Картинка не найдена: {image_path}")
                     sent_message = await bot.send_message(
                         chat_id=telegram_id,
-                        text=message_text,
-                        reply_markup=keyboard
+                        text=user_message,
+                        reply_markup=user_keyboard
                     )
                 
                 # 3. Сохраняем message_id нового задания
                 if sent_message:
                     await save_user_last_task_message_id(telegram_id, sent_message.message_id)
                 
-                # 4. Обновляем current_task и course_state у пользователя
-                from database import supabase, TABLE_NAME, CourseState
+                # 4. Обновляем current_task (course_state НЕ меняем для limited)
+                from database import supabase, TABLE_NAME
                 try:
-                    logger.info(f"Обновляем current_task={task_number}, course_state=in_progress для {telegram_id}")
-                    response = supabase.table(TABLE_NAME).update({
-                        'current_task': task_number,
-                        'course_state': CourseState.IN_PROGRESS  # Пользователь получил задание
-                    }).eq('telegram_id', telegram_id).execute()
-                    logger.info(f"✅ current_task и course_state обновлены для {telegram_id}")
+                    if is_limited:
+                        # Для limited только обновляем current_task
+                        logger.info(f"Обновляем current_task={task_number} для LIMITED {telegram_id}")
+                        response = supabase.table(TABLE_NAME).update({
+                            'current_task': task_number
+                        }).eq('telegram_id', telegram_id).execute()
+                    else:
+                        # Для обычных пользователей обновляем и task и state
+                        logger.info(f"Обновляем current_task={task_number}, course_state=in_progress для {telegram_id}")
+                        response = supabase.table(TABLE_NAME).update({
+                            'current_task': task_number,
+                            'course_state': CourseState.IN_PROGRESS
+                        }).eq('telegram_id', telegram_id).execute()
+                    logger.info(f"✅ Данные обновлены для {telegram_id}")
                 except Exception as update_error:
                     logger.error(f"❌ Не удалось обновить данные для {telegram_id}: {update_error}")
                 
@@ -381,6 +414,78 @@ async def send_task_to_single_user(bot: Bot, telegram_id: int, task_number: int)
         return False
 
 
+async def send_task_to_limited_user(bot: Bot, telegram_id: int, task_number: int) -> bool:
+    """
+    Отправляет задание ограниченному участнику (limited)
+    
+    Отличия от обычной отправки:
+    - Используется MSG_TASK_LIMITED (специальное сообщение)
+    - Используется get_limited_keyboard() (только кнопка "Написать пост")
+    - НЕ меняется course_state (остаётся limited)
+    
+    Args:
+        bot: Экземпляр бота
+        telegram_id: ID пользователя в Telegram
+        task_number: Номер задания (1-14)
+        
+    Returns:
+        True если задание отправлено успешно
+    """
+    try:
+        # Получаем задание из БД
+        task = await get_task_by_number(task_number)
+        
+        if not task:
+            logger.error(f"Задание {task_number} не найдено в БД!")
+            return False
+        
+        from database import save_user_last_task_message_id
+        
+        # Получаем текст задания
+        zadanie_text = task.get("zadanie", "")
+        
+        # Формируем сообщение для LIMITED пользователя
+        message_text = messages.MSG_TASK_LIMITED.format(
+            day=task_number,
+            zadanie=zadanie_text
+        )
+        
+        # Клавиатура только с кнопкой "Написать пост"
+        keyboard = get_limited_keyboard()
+        
+        # Путь к картинке задания
+        image_path = f"{config.TASK_IMAGE_DIR}/task_{task_number}.jpg"
+        
+        # Отправляем задание
+        sent_message = None
+        if os.path.exists(image_path):
+            photo = FSInputFile(image_path)
+            sent_message = await bot.send_photo(
+                chat_id=telegram_id,
+                photo=photo,
+                caption=message_text,
+                reply_markup=keyboard
+            )
+        else:
+            logger.warning(f"Картинка не найдена: {image_path}")
+            sent_message = await bot.send_message(
+                chat_id=telegram_id,
+                text=message_text,
+                reply_markup=keyboard
+            )
+        
+        # Сохраняем message_id задания
+        if sent_message:
+            await save_user_last_task_message_id(telegram_id, sent_message.message_id)
+        
+        logger.info(f"✅ LIMITED {telegram_id}: отправлено задание {task_number}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Ошибка при отправке задания LIMITED {telegram_id}: {e}")
+        return False
+
+
 async def send_reminder(bot: Bot, reminder_type: str):
     """
     Отправляет напоминание пользователям
@@ -458,7 +563,14 @@ async def send_reminder(bot: Bot, reminder_type: str):
         
         for user in users:
             telegram_id = user.get("telegram_id")
+            user_course_state = user.get("course_state", "")
+            
             if not telegram_id:
+                continue
+            
+            # LIMITED пользователи НЕ получают напоминания (у них нет обязательств сдавать)
+            if user_course_state == CourseState.LIMITED:
+                logger.info(f"⏭️ Пропуск напоминания для LIMITED {telegram_id}")
                 continue
             
             try:
@@ -549,8 +661,14 @@ async def check_tasks_completion(bot: Bot):
         for user in all_users:
             telegram_id = user.get("telegram_id")
             user_current_task = user.get("current_task", 0)
+            user_course_state = user.get("course_state", "")
             
             if not telegram_id:
+                continue
+            
+            # LIMITED пользователи не получают штрафы (только пишут посты)
+            if user_course_state == CourseState.LIMITED:
+                logger.info(f"⏭️ Пропуск LIMITED пользователя {telegram_id} (без штрафов)")
                 continue
             
             logger.info(f"👤 Пользователь {telegram_id}: current_task={user_current_task}, current_day={current_day}")
