@@ -305,6 +305,82 @@ async def send_task_to_users(bot: Bot, task_number: int):
         logger.error(f"Ошибка при рассылке задания: {e}")
 
 
+async def send_task_to_single_user(bot: Bot, telegram_id: int, task_number: int) -> bool:
+    """
+    Отправляет задание одному пользователю (для опоздавших регистраций)
+    
+    Args:
+        bot: Экземпляр бота
+        telegram_id: ID пользователя в Telegram
+        task_number: Номер задания (1-14)
+        
+    Returns:
+        True если задание отправлено успешно
+    """
+    try:
+        # Получаем задание из БД
+        task = await get_task_by_number(task_number)
+        
+        if not task:
+            logger.error(f"Задание {task_number} не найдено в БД!")
+            return False
+        
+        from database import save_user_last_task_message_id, supabase, TABLE_NAME, CourseState
+        
+        # Получаем текст задания
+        zadanie_text = task.get("zadanie", "")
+        
+        # Формируем сообщение
+        message_text = messages.MSG_NEW_TASK.format(
+            day=task_number,
+            zadanie=zadanie_text
+        )
+        
+        # Клавиатура
+        keyboard = get_task_keyboard()
+        
+        # Путь к картинке задания
+        image_path = f"{config.TASK_IMAGE_DIR}/task_{task_number}.jpg"
+        
+        # Отправляем задание
+        sent_message = None
+        if os.path.exists(image_path):
+            photo = FSInputFile(image_path)
+            sent_message = await bot.send_photo(
+                chat_id=telegram_id,
+                photo=photo,
+                caption=message_text,
+                reply_markup=keyboard
+            )
+        else:
+            logger.warning(f"Картинка не найдена: {image_path}")
+            sent_message = await bot.send_message(
+                chat_id=telegram_id,
+                text=message_text,
+                reply_markup=keyboard
+            )
+        
+        # Сохраняем message_id задания
+        if sent_message:
+            await save_user_last_task_message_id(telegram_id, sent_message.message_id)
+        
+        # Обновляем current_task и course_state у пользователя
+        try:
+            supabase.table(TABLE_NAME).update({
+                'current_task': task_number,
+                'course_state': CourseState.IN_PROGRESS
+            }).eq('telegram_id', telegram_id).execute()
+            logger.info(f"✅ Опоздавший {telegram_id}: отправлено задание {task_number}, статус=in_progress")
+        except Exception as update_error:
+            logger.error(f"❌ Ошибка обновления данных опоздавшего {telegram_id}: {update_error}")
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"Ошибка при отправке задания опоздавшему {telegram_id}: {e}")
+        return False
+
+
 async def send_reminder(bot: Bot, reminder_type: str):
     """
     Отправляет напоминание пользователям

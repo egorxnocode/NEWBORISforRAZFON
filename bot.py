@@ -38,11 +38,13 @@ from course import (
     start_course,
     stop_course,
     send_task_to_users,
+    send_task_to_single_user,
     send_reminder,
     check_tasks_completion,
     advance_course_day,
     get_task_keyboard
 )
+from database import get_global_course_state
 from post_handlers import (
     handle_submit_task_button,
     handle_write_post_button,
@@ -747,6 +749,37 @@ async def handle_channel_input(message: Message, text: str):
                 logger.error(f"Ошибка при отправке видео: {e}")
         else:
             logger.warning(f"Видео с инструкцией не найдено: {config.INSTRUCTION_VIDEO_PATH}")
+        
+        # ============================================================
+        # СИСТЕМА ДЛЯ ОПОЗДАВШИХ
+        # Если курс уже активен (current_day >= 1), отправляем первое задание
+        # ============================================================
+        course_state = await get_global_course_state()
+        
+        if course_state and course_state.get("is_active"):
+            current_day = course_state.get("current_day", 0)
+            
+            if current_day >= 1:
+                # Курс идёт, отправляем первое задание опоздавшему
+                logger.info(f"📥 Опоздавший {user_id}: курс активен (день {current_day}), отправляем задание 1")
+                
+                # Отправляем сообщение для опоздавших
+                await message.answer(messages.MSG_LATE_REGISTRATION)
+                
+                # Небольшая пауза перед отправкой задания
+                await asyncio.sleep(1)
+                
+                # Отправляем ПЕРВОЕ задание (всегда задание 1 для новых участников)
+                task_sent = await send_task_to_single_user(bot, user_id, task_number=1)
+                
+                if task_sent:
+                    logger.info(f"✅ Опоздавшему {user_id} отправлено первое задание")
+                else:
+                    logger.error(f"❌ Не удалось отправить задание опоздавшему {user_id}")
+            else:
+                logger.info(f"📝 Пользователь {user_id} зарегистрировался, курс активен но ещё не начался (day={current_day})")
+        else:
+            logger.info(f"📝 Пользователь {user_id} зарегистрировался до старта курса")
     else:
         await message.answer("❌ Произошла ошибка. Попробуйте еще раз.")
 
