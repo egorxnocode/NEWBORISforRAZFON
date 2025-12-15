@@ -605,14 +605,12 @@ async def handle_registered_user_message(message: Message, user_id: int):
     
     # Проверяем course_state для определения статуса задания
     if user_course_state == CourseState.IN_PROGRESS:
-        # Пользователь ПОЛУЧИЛ задание и ещё НЕ сдал - напоминаем про кнопки
-        from course import get_task_keyboard
-        keyboard = get_task_keyboard()
+        # Пользователь ПОЛУЧИЛ задание и ещё НЕ сдал - отправляем задание заново
+        from course import get_task_keyboard, send_task_to_single_user
         user_current_task = await get_user_current_task(user_id)
-        await message.answer(
-            messages.MSG_STATE_HAS_TASK_NOT_STARTED.format(day=user_current_task),
-            reply_markup=keyboard
-        )
+        
+        # Отправляем задание текущего дня
+        await send_task_to_single_user(bot, user_id, user_current_task)
     elif user_course_state.startswith("waiting_task"):
         # Пользователь СДАЛ задание и ЖДЁТ следующее в 10:00
         # Извлекаем номер выполненного задания
