@@ -537,24 +537,18 @@ async def send_reminder(bot: Bot, reminder_type: str):
         check_hour = int(check_time_parts[0])
         check_minute = int(check_time_parts[1])
         
-        time_diff_minutes = (check_hour * 60 + check_minute) - (now.hour * 60 + now.minute)
-        time_left = f"{time_diff_minutes} минут"
-        
-        # Формируем сообщение
-        message_text = messages.MSG_REMINDER.format(
-            day=current_day,
-            time_left=time_left
-        )
-        
         # Клавиатура
         keyboard = get_task_keyboard()
         
-        # Выбираем картинку в зависимости от типа напоминания
+        # Выбираем сообщение И картинку в зависимости от типа напоминания
         if reminder_type == "reminder_1":
+            message_text = messages.MSG_REMINDER_1
             reminder_image = config.REMINDER_1_IMAGE
         elif reminder_type == "reminder_2":
+            message_text = messages.MSG_REMINDER_2
             reminder_image = config.REMINDER_2_IMAGE
         else:
+            message_text = messages.MSG_REMINDER_3
             reminder_image = config.REMINDER_3_IMAGE
         
         # Отправляем каждому
