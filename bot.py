@@ -470,17 +470,26 @@ async def callback_write_post(callback: CallbackQuery):
     # Проверяем, не заблокирован ли пользователь
     from database import is_user_blocked
     if await is_user_blocked(user_id):
-        await callback.answer(messages.MSG_USER_BLOCKED, show_alert=True)
+        try:
+            await callback.answer(messages.MSG_USER_BLOCKED, show_alert=True)
+        except Exception:
+            pass
         return
     
     # Проверяем, участвует ли пользователь в курсе
     course_state = await get_user_course_state(user_id)
     
     if course_state not in [CourseState.IN_PROGRESS] and not course_state.startswith("waiting_task"):
-        await callback.answer(messages.MSG_NOT_IN_COURSE, show_alert=True)
+        try:
+            await callback.answer(messages.MSG_NOT_IN_COURSE, show_alert=True)
+        except Exception:
+            pass
         return
     
-    await callback.answer()
+    try:
+        await callback.answer()
+    except Exception:
+        pass  # Игнорируем ошибку "query is too old"
     await handle_write_post_button(user_id, callback.message, bot)
 
 
@@ -492,17 +501,26 @@ async def callback_submit_task(callback: CallbackQuery):
     # Проверяем, не заблокирован ли пользователь
     from database import is_user_blocked
     if await is_user_blocked(user_id):
-        await callback.answer(messages.MSG_USER_BLOCKED, show_alert=True)
+        try:
+            await callback.answer(messages.MSG_USER_BLOCKED, show_alert=True)
+        except Exception:
+            pass  # Игнорируем ошибку "query is too old"
         return
     
     # Проверяем, участвует ли пользователь в курсе
     course_state = await get_user_course_state(user_id)
     
     if course_state not in [CourseState.IN_PROGRESS] and not course_state.startswith("waiting_task"):
-        await callback.answer(messages.MSG_NOT_IN_COURSE, show_alert=True)
+        try:
+            await callback.answer(messages.MSG_NOT_IN_COURSE, show_alert=True)
+        except Exception:
+            pass
         return
     
-    await callback.answer()
+    try:
+        await callback.answer()
+    except Exception:
+        pass  # Игнорируем ошибку "query is too old" при перезапуске бота
     await handle_submit_task_button(user_id, callback.message, bot)
 
 
