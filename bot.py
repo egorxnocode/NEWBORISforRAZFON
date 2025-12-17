@@ -137,6 +137,10 @@ def is_admin(user_id: int) -> bool:
 @dp.message(CommandStart())
 async def cmd_start(message: Message):
     """Обработчик команды /start"""
+    # Игнорируем сообщения из групповых чатов
+    if message.chat.type != "private":
+        return
+    
     user_id = message.from_user.id
     
     # Проверяем, не заблокирован ли пользователь
@@ -603,6 +607,10 @@ async def callback_submit_task(callback: CallbackQuery):
 @dp.message(F.text)
 async def handle_text_message(message: Message):
     """Обработчик всех текстовых сообщений"""
+    # Игнорируем сообщения из групповых чатов
+    if message.chat.type != "private":
+        return
+    
     user_id = message.from_user.id
     text = message.text.strip()
     
@@ -716,6 +724,10 @@ async def handle_registered_user_message(message: Message, user_id: int):
 @dp.message(F.voice)
 async def handle_voice_message(message: Message):
     """Обработчик голосовых сообщений"""
+    # Игнорируем сообщения из групповых чатов
+    if message.chat.type != "private":
+        return
+    
     user_id = message.from_user.id
     
     # Проверяем, не заблокирован ли пользователь
@@ -735,6 +747,9 @@ async def handle_voice_message(message: Message):
 @dp.message(F.photo | F.video | F.document)
 async def handle_media_message(message: Message):
     """Обработчик медиафайлов"""
+    # Игнорируем сообщения из групповых чатов
+    if message.chat.type != "private":
+        return
     # Игнорируем медиа (можно расширить функциональность при необходимости)
     pass
 
