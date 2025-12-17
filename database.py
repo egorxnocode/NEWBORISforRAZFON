@@ -593,3 +593,63 @@ async def clear_messages_to_delete(telegram_id: int) -> bool:
         print(f"Ошибка при очистке списка сообщений: {e}")
         return False
 
+
+# ============================================================
+# ФУНКЦИИ ДЛЯ РАБОТЫ С ГРУППАМИ (group1-group5)
+# ============================================================
+
+async def get_group_data(group_number: int) -> tuple[list, str]:
+    """
+    Получает данные группы: список telegram_id и текст для рассылки
+    
+    Args:
+        group_number: Номер группы (1-5)
+        
+    Returns:
+        Кортеж (список telegram_id, текст сообщения)
+    """
+    if group_number < 1 or group_number > 5:
+        return [], ""
+    
+    table_name = f"group{group_number}"
+    
+    try:
+        response = supabase.table(table_name).select("*").execute()
+        
+        if not response.data:
+            return [], ""
+        
+        # Получаем список telegram_id
+        telegram_ids = [row.get("telegram_id") for row in response.data if row.get("telegram_id")]
+        
+        # Текст берем из первой записи (он одинаковый для всех в группе)
+        text = response.data[0].get("text", "") if response.data else ""
+        
+        return telegram_ids, text
+        
+    except Exception as e:
+        print(f"Ошибка при получении данных группы {group_number}: {e}")
+        return [], ""
+
+
+async def get_group_users_count(group_number: int) -> int:
+    """
+    Получает количество пользователей в группе
+    
+    Args:
+        group_number: Номер группы (1-5)
+        
+    Returns:
+        Количество пользователей
+    """
+    if group_number < 1 or group_number > 5:
+        return 0
+    
+    table_name = f"group{group_number}"
+    
+    try:
+        response = supabase.table(table_name).select("telegram_id").execute()
+        return len(response.data) if response.data else 0
+    except Exception as e:
+        print(f"Ошибка при подсчете пользователей группы {group_number}: {e}")
+        return 0

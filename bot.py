@@ -326,6 +326,78 @@ async def cmd_test_reminder_935(message: Message):
     logger.info(f"Админ {user_id} запустил тест напоминания 9:35")
 
 
+@dp.message(Command("group"))
+async def cmd_group(message: Message):
+    """
+    Команда /group N - рассылка сообщения группе N (1-5)
+    
+    Использование:
+        /group 1 - рассылка группе 1
+        /group 2 - рассылка группе 2
+        ...
+        /group 5 - рассылка группе 5
+    """
+    user_id = message.from_user.id
+    
+    # Проверяем, является ли пользователь админом
+    if not is_admin(user_id):
+        return
+    
+    # Парсим аргументы команды
+    text = message.text.strip()
+    parts = text.split()
+    
+    if len(parts) < 2:
+        # Неверный формат - отправляем подсказку в мониторинг
+        await monitor.send_admin_report(bot, "❌ /group\n\nИспользование: /group N (где N = 1-5)")
+        return
+    
+    # Получаем номер группы
+    try:
+        group_number = int(parts[1])
+    except ValueError:
+        await monitor.send_admin_report(bot, f"❌ /group {parts[1]}\n\nНомер группы должен быть числом от 1 до 5")
+        return
+    
+    if group_number < 1 or group_number > 5:
+        await monitor.send_admin_report(bot, f"❌ /group {group_number}\n\nНомер группы должен быть от 1 до 5")
+        return
+    
+    # Получаем данные группы из БД
+    from database import get_group_data
+    telegram_ids, group_text = await get_group_data(group_number)
+    
+    if not telegram_ids:
+        await monitor.send_admin_report(bot, f"⚠️ /group {group_number}\n\nГруппа {group_number} пуста (нет пользователей)")
+        return
+    
+    if not group_text:
+        await monitor.send_admin_report(bot, f"⚠️ /group {group_number}\n\nТекст для группы {group_number} не задан")
+        return
+    
+    # Отправляем сообщение всем пользователям группы
+    success_count = 0
+    error_count = 0
+    
+    for tid in telegram_ids:
+        try:
+            await bot.send_message(chat_id=tid, text=group_text)
+            success_count += 1
+        except Exception as e:
+            logger.error(f"Ошибка отправки группе {group_number} пользователю {tid}: {e}")
+            error_count += 1
+    
+    # Отчёт в мониторинговый чат
+    report = f"""📨 /group {group_number}
+
+✅ Успешно: {success_count}
+❌ Ошибок: {error_count}
+📊 Всего в группе: {len(telegram_ids)}"""
+    
+    await monitor.send_admin_report(bot, report)
+    logger.info(f"Админ {user_id} выполнил /group {group_number}: успешно={success_count}, ошибок={error_count}")
+
+
 @dp.message(Command("950"))
 async def cmd_test_check_950(message: Message):
     """Тестовая команда: проверка и штрафы в 9:50 + переход на следующий день"""
