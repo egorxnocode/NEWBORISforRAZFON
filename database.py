@@ -614,16 +614,13 @@ async def get_group_data(group_number: int) -> tuple[list, str]:
     table_name = f"group{group_number}"
     
     try:
-        response = supabase.table(table_name).select("*").execute()
+        # Получаем список пользователей из таблицы groupN
+        users_response = supabase.table(table_name).select("telegram_id").execute()
+        telegram_ids = [row.get("telegram_id") for row in users_response.data if row.get("telegram_id")] if users_response.data else []
         
-        if not response.data:
-            return [], ""
-        
-        # Получаем список telegram_id
-        telegram_ids = [row.get("telegram_id") for row in response.data if row.get("telegram_id")]
-        
-        # Текст берем из первой записи (он одинаковый для всех в группе)
-        text = response.data[0].get("text", "") if response.data else ""
+        # Получаем текст из отдельной таблицы group_texts
+        text_response = supabase.table("group_texts").select("text").eq("group_number", group_number).execute()
+        text = text_response.data[0].get("text", "") if text_response.data else ""
         
         return telegram_ids, text
         
