@@ -328,6 +328,9 @@ async def add_penalty(telegram_id: int) -> int:
     """
     Добавляет штраф пользователю
     
+    ВАЖНО: При 3 штрафах пользователь выгоняется из чата, 
+    но ПРОДОЛЖАЕТ получать задания (course_state НЕ меняется на excluded)
+    
     Returns:
         Количество штрафов после добавления
     """
@@ -338,12 +341,9 @@ async def add_penalty(telegram_id: int) -> int:
         
         new_penalties = user.get("penalties", 0) + 1
         
-        # Обновляем штрафы и состояние
+        # Обновляем только количество штрафов
+        # НЕ меняем course_state - пользователь продолжает курс даже с 3+ штрафами
         update_data = {"penalties": new_penalties}
-        
-        # Если 3+ штрафа, исключаем из курса
-        if new_penalties >= 3:
-            update_data["course_state"] = CourseState.EXCLUDED
         
         response = supabase.table(TABLE_NAME).update(update_data).eq("telegram_id", telegram_id).execute()
         

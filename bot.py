@@ -330,6 +330,57 @@ async def cmd_test_reminder_935(message: Message):
     logger.info(f"Админ {user_id} запустил тест напоминания 9:35")
 
 
+@dp.message(Command("fix_excluded"))
+async def cmd_fix_excluded(message: Message):
+    """
+    Команда /fix_excluded - переводит пользователей со статусом excluded обратно в in_progress
+    
+    Используется для исправления пользователей, которые были исключены из чата,
+    но должны продолжать получать задания.
+    """
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id):
+        return
+    
+    from database import supabase, TABLE_NAME, CourseState
+    
+    try:
+        # Находим всех excluded пользователей
+        response = supabase.table(TABLE_NAME).select("telegram_id, penalties").eq("course_state", "excluded").execute()
+        excluded_users = response.data if response.data else []
+        
+        if not excluded_users:
+            await monitor.send_admin_report(bot, "ℹ️ /fix_excluded\n\nНет пользователей со статусом excluded")
+            return
+        
+        # Переводим их в in_progress
+        fixed_count = 0
+        for user in excluded_users:
+            tid = user.get("telegram_id")
+            penalties = user.get("penalties", 0)
+            try:
+                supabase.table(TABLE_NAME).update({
+                    "course_state": CourseState.IN_PROGRESS
+                }).eq("telegram_id", tid).execute()
+                fixed_count += 1
+                logger.info(f"✅ Пользователь {tid} переведён из excluded в in_progress (штрафов: {penalties})")
+            except Exception as e:
+                logger.error(f"❌ Ошибка при исправлении {tid}: {e}")
+        
+        report = f"""✅ /fix_excluded
+
+Исправлено пользователей: {fixed_count}
+Они продолжат получать задания."""
+        
+        await monitor.send_admin_report(bot, report)
+        logger.info(f"Админ {user_id} исправил {fixed_count} excluded пользователей")
+        
+    except Exception as e:
+        logger.error(f"Ошибка в /fix_excluded: {e}")
+        await monitor.send_admin_report(bot, f"❌ /fix_excluded\n\nОшибка: {e}")
+
+
 @dp.message(Command("group"))
 async def cmd_group(message: Message):
     """
