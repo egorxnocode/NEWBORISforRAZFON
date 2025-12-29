@@ -664,7 +664,8 @@ async def get_users_who_finished_task_14() -> list:
         Список пользователей
     """
     try:
-        response = supabase.table(TABLE_NAME).select("*").gte("current_task", 14).execute()
+        # current_task >= 15 означает что пользователь ЗАВЕРШИЛ 14 задание
+        response = supabase.table(TABLE_NAME).select("*").gte("current_task", 15).execute()
         return response.data if response.data else []
     except Exception as e:
         print(f"Ошибка при получении пользователей, завершивших 14 задание: {e}")
@@ -679,12 +680,13 @@ async def check_if_user_finished_course(telegram_id: int) -> bool:
         telegram_id: Telegram ID пользователя
         
     Returns:
-        True если завершил 14 задание
+        True если завершил 14 задание (current_task >= 15)
     """
     try:
         user = await get_user_by_telegram_id(telegram_id)
         if user:
-            return user.get("current_task", 0) >= 14
+            # current_task = 15 означает что пользователь ЗАВЕРШИЛ 14 задание
+            return user.get("current_task", 0) >= 15
         return False
     except Exception as e:
         print(f"Ошибка при проверке завершения курса для {telegram_id}: {e}")

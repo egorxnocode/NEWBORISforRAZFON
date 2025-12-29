@@ -53,11 +53,11 @@ async def get_users_for_final_message(message_number: int) -> list:
     """
     try:
         # Получаем всех пользователей, которые:
-        # 1. Завершили 14 задание (current_task >= 14)
+        # 1. Завершили 14 задание (current_task >= 15)
         # 2. Ещё не получили это финальное сообщение
         column_name = f"final_message_{message_number}_sent"
         
-        response = supabase.table(TABLE_NAME).select("*").gte("current_task", 14).eq(column_name, False).execute()
+        response = supabase.table(TABLE_NAME).select("*").gte("current_task", 15).eq(column_name, False).execute()
         
         if response.data:
             logger.info(f"Найдено {len(response.data)} пользователей для финального сообщения {message_number}")
@@ -199,8 +199,10 @@ async def should_ignore_user_input(telegram_id: int) -> bool:
             current_task = user.get("current_task", 0)
             final_message_3_sent = user.get("final_message_3_sent", False)
             
-            # Игнорируем, если завершил 14 задание, но ещё не получил все финальные сообщения
-            if current_task >= 14 and not final_message_3_sent:
+            # Игнорируем, если ЗАВЕРШИЛ 14 задание (current_task >= 15), но ещё не получил все финальные сообщения
+            # current_task = 14 означает что пользователь НА 14 задании, а не завершил его
+            # current_task = 15 означает что пользователь ЗАВЕРШИЛ 14 задание
+            if current_task >= 15 and not final_message_3_sent:
                 return True
         
         return False
