@@ -386,6 +386,69 @@ async def cmd_fix_excluded(message: Message):
         await monitor.send_admin_report(bot, f"❌ /fix_excluded\n\nОшибка: {e}")
 
 
+@dp.message(Command("final1"))
+async def handle_final1_command(message: Message):
+    """Админ команда: отправить финальное сообщение 1 вручную"""
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id):
+        await message.answer("❌ У вас нет прав для выполнения этой команды.")
+        return
+    
+    await message.answer("📤 Отправляю финальное сообщение 1...")
+    
+    from final_messages_handlers import send_final_message_to_all
+    await send_final_message_to_all(bot, message_number=1)
+    
+    await message.answer("✅ Финальное сообщение 1 отправлено!")
+    
+    # Отчёт в мониторинговый чат
+    await monitor.send_admin_report(bot, "📧 Админ отправил финальное сообщение 1 вручную")
+    logger.info(f"Админ {user_id} отправил финальное сообщение 1 вручную")
+
+
+@dp.message(Command("final2"))
+async def handle_final2_command(message: Message):
+    """Админ команда: отправить финальное сообщение 2 вручную"""
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id):
+        await message.answer("❌ У вас нет прав для выполнения этой команды.")
+        return
+    
+    await message.answer("📤 Отправляю финальное сообщение 2...")
+    
+    from final_messages_handlers import send_final_message_to_all
+    await send_final_message_to_all(bot, message_number=2)
+    
+    await message.answer("✅ Финальное сообщение 2 отправлено!")
+    
+    # Отчёт в мониторинговый чат
+    await monitor.send_admin_report(bot, "📧 Админ отправил финальное сообщение 2 вручную")
+    logger.info(f"Админ {user_id} отправил финальное сообщение 2 вручную")
+
+
+@dp.message(Command("final3"))
+async def handle_final3_command(message: Message):
+    """Админ команда: отправить финальное сообщение 3 вручную"""
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id):
+        await message.answer("❌ У вас нет прав для выполнения этой команды.")
+        return
+    
+    await message.answer("📤 Отправляю финальное сообщение 3...")
+    
+    from final_messages_handlers import send_final_message_to_all
+    await send_final_message_to_all(bot, message_number=3)
+    
+    await message.answer("✅ Финальное сообщение 3 отправлено!")
+    
+    # Отчёт в мониторинговый чат
+    await monitor.send_admin_report(bot, "📧 Админ отправил финальное сообщение 3 вручную")
+    logger.info(f"Админ {user_id} отправил финальное сообщение 3 вручную")
+
+
 @dp.message(Command("group"))
 async def cmd_group(message: Message):
     """
