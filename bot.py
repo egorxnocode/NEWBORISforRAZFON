@@ -1189,6 +1189,11 @@ async def scheduled_final_message_1():
         logger.warning("❌ course_state не найден в БД!")
         return
     
+    # Проверяем, активен ли курс
+    if not course_state.get("is_active"):
+        logger.info("⏸️ Курс не активен (/razgon_stop), финальное сообщение 1 пропущено")
+        return
+    
     current_day = course_state.get("current_day", 0)
     
     # Проверяем, что это 15-й день (после 14 задания)
@@ -1213,6 +1218,11 @@ async def scheduled_final_message_2():
         logger.warning("❌ course_state не найден в БД!")
         return
     
+    # Проверяем, активен ли курс
+    if not course_state.get("is_active"):
+        logger.info("⏸️ Курс не активен (/razgon_stop), финальное сообщение 2 пропущено")
+        return
+    
     current_day = course_state.get("current_day", 0)
     
     if current_day >= 15:
@@ -1234,6 +1244,11 @@ async def scheduled_final_message_3():
     
     if not course_state:
         logger.warning("❌ course_state не найден в БД!")
+        return
+    
+    # Проверяем, активен ли курс
+    if not course_state.get("is_active"):
+        logger.info("⏸️ Курс не активен (/razgon_stop), финальное сообщение 3 пропущено")
         return
     
     current_day = course_state.get("current_day", 0)
