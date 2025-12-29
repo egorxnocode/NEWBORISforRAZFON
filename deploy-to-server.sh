@@ -112,7 +112,7 @@ SUPABASE_KEY=ЗАМЕНИТЕ_НА_ВАШ_КЛЮЧ
 # N8N (Docker internal)
 # ============================================================
 N8N_WEBHOOK_URL=http://n8n:5678/webhook/generate-post
-N8N_TIMEOUT=180
+N8N_TIMEOUT=300
 
 # ============================================================
 # ADMIN SETTINGS

@@ -48,6 +48,6 @@ OPENAI_API_KEY=sk-your_openai_key_here
 # URL вашего n8n workflow webhook
 N8N_WEBHOOK_URL=https://your-n8n-instance.com/webhook/generate-post
 
-# Таймаут ожидания ответа от n8n (в секундах, по умолчанию 180 = 3 минуты)
-N8N_TIMEOUT=180
+# Таймаут ожидания ответа от n8n (в секундах, по умолчанию 300 = 5 минут)
+N8N_TIMEOUT=300
 

@@ -105,7 +105,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 N8N_WEBHOOK_URL = os.getenv("N8N_WEBHOOK_URL", "")
 
 # Таймаут ожидания ответа от n8n (в секундах)
-N8N_TIMEOUT = int(os.getenv("N8N_TIMEOUT", "180"))  # 3 минуты = 180 секунд
+N8N_TIMEOUT = int(os.getenv("N8N_TIMEOUT", "300"))  # 5 минут = 300 секунд
 
 # Проверка интеграций
 if not OPENAI_API_KEY:

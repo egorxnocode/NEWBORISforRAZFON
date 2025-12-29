@@ -45,7 +45,7 @@ MSG_REPORT_PENALTIES = """
 MSG_REPORT_N8N_TIMEOUT = """
 🔴 <b>ТАЙМАУТ N8N</b>
 
-Пользователь <code>{user_id}</code> не получил ответ от n8n за 3 минуты
+Пользователь <code>{user_id}</code> не получил ответ от n8n за 5 минут
 
 Задание: <b>{task}</b>
 ⏰ Время: {time}
@@ -99,7 +99,7 @@ MSG_DAILY_SUMMARY = """
 
 <b>🤖 N8N:</b>
 
-Таймауты (>3 мин): {n8n_timeouts}
+Таймауты (>5 мин): {n8n_timeouts}
 Ошибки: {n8n_errors}
 
 ━━━━━━━━━━━━━━━━━━━━

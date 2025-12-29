@@ -36,7 +36,7 @@ N8N_WEBHOOK_URL=http://n8n:5678/webhook/generate-post
 # Или внешний URL:
 # N8N_WEBHOOK_URL=https://your-n8n.com/webhook/generate-post
 
-N8N_TIMEOUT=180
+N8N_TIMEOUT=300
 
 # Настройки n8n (если в том же docker-compose):
 N8N_USER=admin

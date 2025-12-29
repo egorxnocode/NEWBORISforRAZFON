@@ -55,6 +55,11 @@ from post_handlers import (
 from user_states import get_user_state as get_dialog_state, clear_user_state as clear_dialog_state
 from ai_helper import handle_n8n_response
 from monitoring import monitor
+from final_messages_handlers import (
+    send_final_message_to_all,
+    should_ignore_user_input,
+    mark_course_finished
+)
 
 # Настройка логирования
 logging.basicConfig(
@@ -594,6 +599,14 @@ async def callback_write_post(callback: CallbackQuery):
     """Обработчик кнопки 'Напиши пост'"""
     user_id = callback.from_user.id
     
+    # Проверяем, не завершил ли пользователь 14 задание (игнорируем до конца 15 дня)
+    if await should_ignore_user_input(user_id):
+        try:
+            await callback.answer("Курс завершен. Ожидайте финальные сообщения.", show_alert=True)
+        except Exception:
+            pass
+        return
+    
     # Проверяем, не заблокирован ли пользователь
     from database import is_user_blocked
     if await is_user_blocked(user_id):
@@ -624,6 +637,14 @@ async def callback_write_post(callback: CallbackQuery):
 async def callback_submit_task(callback: CallbackQuery):
     """Обработчик кнопки 'Сдать задание'"""
     user_id = callback.from_user.id
+    
+    # Проверяем, не завершил ли пользователь 14 задание (игнорируем до конца 15 дня)
+    if await should_ignore_user_input(user_id):
+        try:
+            await callback.answer("Курс завершен. Ожидайте финальные сообщения.", show_alert=True)
+        except Exception:
+            pass
+        return
     
     # Проверяем, не заблокирован ли пользователь
     from database import is_user_blocked
@@ -664,6 +685,11 @@ async def handle_text_message(message: Message):
     
     user_id = message.from_user.id
     text = message.text.strip()
+    
+    # Проверяем, не завершил ли пользователь 14 задание (игнорируем до конца 15 дня)
+    if await should_ignore_user_input(user_id):
+        # Игнорируем сообщения, не отвечаем
+        return
     
     # Проверяем, не заблокирован ли пользователь
     from database import is_user_blocked
@@ -780,6 +806,11 @@ async def handle_voice_message(message: Message):
         return
     
     user_id = message.from_user.id
+    
+    # Проверяем, не завершил ли пользователь 14 задание (игнорируем до конца 15 дня)
+    if await should_ignore_user_input(user_id):
+        # Игнорируем сообщения, не отвечаем
+        return
     
     # Проверяем, не заблокирован ли пользователь
     from database import is_user_blocked
@@ -1082,6 +1113,76 @@ async def scheduled_daily_summary():
     logger.info("📊 Статистика сброшена для нового дня")
 
 
+async def scheduled_final_message_1():
+    """Финальное сообщение 1 в 10:00 (15 день)"""
+    logger.info("=" * 50)
+    logger.info("⏰ ПЛАНИРОВЩИК: Финальное сообщение 1 (10:00)")
+    logger.info("=" * 50)
+    
+    from database import get_global_course_state
+    course_state = await get_global_course_state()
+    
+    if not course_state:
+        logger.warning("❌ course_state не найден в БД!")
+        return
+    
+    current_day = course_state.get("current_day", 0)
+    
+    # Проверяем, что это 15-й день (после 14 задания)
+    if current_day >= 15:
+        logger.info(f"📤 Отправляем финальное сообщение 1 (день {current_day})...")
+        await send_final_message_to_all(bot, message_number=1)
+        logger.info("✅ Финальное сообщение 1 отправлено")
+    else:
+        logger.info(f"⏸️ Текущий день {current_day}, финальные сообщения не отправляются")
+
+
+async def scheduled_final_message_2():
+    """Финальное сообщение 2 в 15:00 (15 день)"""
+    logger.info("=" * 50)
+    logger.info("⏰ ПЛАНИРОВЩИК: Финальное сообщение 2 (15:00)")
+    logger.info("=" * 50)
+    
+    from database import get_global_course_state
+    course_state = await get_global_course_state()
+    
+    if not course_state:
+        logger.warning("❌ course_state не найден в БД!")
+        return
+    
+    current_day = course_state.get("current_day", 0)
+    
+    if current_day >= 15:
+        logger.info(f"📤 Отправляем финальное сообщение 2 (день {current_day})...")
+        await send_final_message_to_all(bot, message_number=2)
+        logger.info("✅ Финальное сообщение 2 отправлено")
+    else:
+        logger.info(f"⏸️ Текущий день {current_day}, финальные сообщения не отправляются")
+
+
+async def scheduled_final_message_3():
+    """Финальное сообщение 3 в 15:55 (15 день)"""
+    logger.info("=" * 50)
+    logger.info("⏰ ПЛАНИРОВЩИК: Финальное сообщение 3 (15:55)")
+    logger.info("=" * 50)
+    
+    from database import get_global_course_state
+    course_state = await get_global_course_state()
+    
+    if not course_state:
+        logger.warning("❌ course_state не найден в БД!")
+        return
+    
+    current_day = course_state.get("current_day", 0)
+    
+    if current_day >= 15:
+        logger.info(f"📤 Отправляем финальное сообщение 3 (день {current_day})...")
+        await send_final_message_to_all(bot, message_number=3)
+        logger.info("✅ Финальное сообщение 3 отправлено")
+    else:
+        logger.info(f"⏸️ Текущий день {current_day}, финальные сообщения не отправляются")
+
+
 def setup_scheduler():
     """Настройка планировщика задач"""
     
@@ -1133,6 +1234,31 @@ def setup_scheduler():
         id="daily_summary"
     )
     logger.info("Планировщик: ежедневная сводка в 23:59")
+    
+    # Финальные сообщения 15 дня
+    # Сообщение 1 - 10:00 (отправляется в тот же час, что и обычные задания)
+    scheduler.add_job(
+        scheduled_final_message_1,
+        CronTrigger(hour=10, minute=0, timezone=config.TIMEZONE),
+        id="final_message_1"
+    )
+    logger.info("Планировщик: финальное сообщение 1 в 10:00")
+    
+    # Сообщение 2 - 15:00
+    scheduler.add_job(
+        scheduled_final_message_2,
+        CronTrigger(hour=15, minute=0, timezone=config.TIMEZONE),
+        id="final_message_2"
+    )
+    logger.info("Планировщик: финальное сообщение 2 в 15:00")
+    
+    # Сообщение 3 - 15:55
+    scheduler.add_job(
+        scheduled_final_message_3,
+        CronTrigger(hour=15, minute=55, timezone=config.TIMEZONE),
+        id="final_message_3"
+    )
+    logger.info("Планировщик: финальное сообщение 3 в 15:55")
     
     scheduler.start()
     logger.info("Планировщик запущен!")

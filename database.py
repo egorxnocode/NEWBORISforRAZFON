@@ -650,3 +650,42 @@ async def get_group_users_count(group_number: int) -> int:
     except Exception as e:
         print(f"Ошибка при подсчете пользователей группы {group_number}: {e}")
         return 0
+
+
+# ============================================================
+# ФУНКЦИИ ДЛЯ РАБОТЫ С ФИНАЛЬНЫМИ СООБЩЕНИЯМИ
+# ============================================================
+
+async def get_users_who_finished_task_14() -> list:
+    """
+    Получает всех пользователей, которые завершили 14 задание
+    
+    Returns:
+        Список пользователей
+    """
+    try:
+        response = supabase.table(TABLE_NAME).select("*").gte("current_task", 14).execute()
+        return response.data if response.data else []
+    except Exception as e:
+        print(f"Ошибка при получении пользователей, завершивших 14 задание: {e}")
+        return []
+
+
+async def check_if_user_finished_course(telegram_id: int) -> bool:
+    """
+    Проверяет, завершил ли пользователь курс (14 задание)
+    
+    Args:
+        telegram_id: Telegram ID пользователя
+        
+    Returns:
+        True если завершил 14 задание
+    """
+    try:
+        user = await get_user_by_telegram_id(telegram_id)
+        if user:
+            return user.get("current_task", 0) >= 14
+        return False
+    except Exception as e:
+        print(f"Ошибка при проверке завершения курса для {telegram_id}: {e}")
+        return False
