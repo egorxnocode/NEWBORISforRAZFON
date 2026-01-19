@@ -169,17 +169,18 @@ async def cmd_start(message: Message):
         await message.answer(messages.MSG_ALREADY_REGISTERED)
         return
     
-    # Отправляем приветственную картинку с текстом
-    if os.path.exists(config.WELCOME_IMAGE_PATH):
+    # Отправляем приветственную картинку с текстом (универсальный поиск)
+    welcome_image = get_welcome_image_path()
+    if welcome_image:
         try:
-            photo = FSInputFile(config.WELCOME_IMAGE_PATH)
+            photo = FSInputFile(welcome_image)
             await message.answer_photo(photo, caption=messages.MSG_ASK_EMAIL)
         except Exception as e:
             logger.error(f"Ошибка при отправке приветственной картинки: {e}")
             # Если картинка не отправилась, отправляем только текст
             await message.answer(messages.MSG_ASK_EMAIL)
     else:
-        logger.warning(f"Приветственная картинка не найдена: {config.WELCOME_IMAGE_PATH}")
+        logger.warning(f"Приветственная картинка не найдена в папке media/")
         # Отправляем только текст
         await message.answer(messages.MSG_ASK_EMAIL)
     
@@ -939,10 +940,11 @@ async def handle_email_input(message: Message, email: str):
     )
     
     if success:
-        # Отправляем картинку (если есть) и сообщение с запросом канала
-        if os.path.exists(config.CHANNEL_REQUEST_IMAGE_PATH):
+        # Отправляем картинку (если есть) и сообщение с запросом канала (универсальный поиск)
+        channel_image = get_channel_request_image_path()
+        if channel_image:
             try:
-                photo = FSInputFile(config.CHANNEL_REQUEST_IMAGE_PATH)
+                photo = FSInputFile(channel_image)
                 await message.answer_photo(
                     photo=photo,
                     caption=messages.MSG_EMAIL_SUCCESS
