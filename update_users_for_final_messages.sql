@@ -19,3 +19,4 @@ COMMENT ON COLUMN users.final_message_1_sent IS 'Отправлено ли фи�
 COMMENT ON COLUMN users.final_message_2_sent IS 'Отправлено ли финальное сообщение 2 (15:00)';
 COMMENT ON COLUMN users.final_message_3_sent IS 'Отправлено ли финальное сообщение 3 (15:55)';
 COMMENT ON COLUMN users.course_finished_at IS 'Время завершения 14 задания';
+

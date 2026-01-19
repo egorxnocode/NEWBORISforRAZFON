@@ -63,3 +63,4 @@ CREATE TRIGGER update_final_messages_updated_at
     BEFORE UPDATE ON final_messages
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
+

@@ -12,6 +12,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFil
 
 import config
 import messages
+from media_helper import get_task_image_path, get_reminder_image_path, get_penalty_image_path
 from database import (
     get_global_course_state,
     update_global_course_state,
@@ -243,8 +244,8 @@ async def send_task_to_users(bot: Bot, task_number: int):
         # Клавиатура
         keyboard = get_task_keyboard()
         
-        # Путь к картинке задания
-        image_path = f"{config.TASK_IMAGE_DIR}/task_{task_number}.jpg"
+        # Путь к картинке задания (универсальный поиск .jpg/.png/.jpeg)
+        image_path = get_task_image_path(task_number, config.TASK_IMAGE_DIR)
         
         # Отправляем каждому пользователю
         success_count = 0
@@ -279,7 +280,7 @@ async def send_task_to_users(bot: Bot, task_number: int):
                 
                 # 2. Отправляем новое задание
                 sent_message = None
-                if os.path.exists(image_path):
+                if image_path:
                     photo = FSInputFile(image_path)
                     sent_message = await bot.send_photo(
                         chat_id=telegram_id,
@@ -376,8 +377,8 @@ async def send_task_to_single_user(bot: Bot, telegram_id: int, task_number: int)
         # Клавиатура
         keyboard = get_task_keyboard()
         
-        # Путь к картинке задания
-        image_path = f"{config.TASK_IMAGE_DIR}/task_{task_number}.jpg"
+        # Путь к картинке задания (универсальный поиск)
+        image_path = get_task_image_path(task_number, config.TASK_IMAGE_DIR)
         
         # Отправляем задание
         sent_message = None
@@ -457,8 +458,8 @@ async def send_task_to_limited_user(bot: Bot, telegram_id: int, task_number: int
         # Клавиатура только с кнопкой "Написать пост"
         keyboard = get_limited_keyboard()
         
-        # Путь к картинке задания
-        image_path = f"{config.TASK_IMAGE_DIR}/task_{task_number}.jpg"
+        # Путь к картинке задания (универсальный поиск)
+        image_path = get_task_image_path(task_number, config.TASK_IMAGE_DIR)
         
         # Отправляем задание
         sent_message = None
@@ -572,7 +573,7 @@ async def send_reminder(bot: Bot, reminder_type: str):
                 continue
             
             try:
-                if os.path.exists(reminder_image):
+                if reminder_image:
                     photo = FSInputFile(reminder_image)
                     await bot.send_photo(
                         chat_id=telegram_id,

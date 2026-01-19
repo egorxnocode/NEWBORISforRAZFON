@@ -232,3 +232,4 @@ async def mark_course_finished(telegram_id: int) -> bool:
     except Exception as e:
         logger.error(f"Ошибка при отметке завершения курса для {telegram_id}: {e}")
         return False
+

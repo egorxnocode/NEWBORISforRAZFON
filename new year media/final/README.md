@@ -37,3 +37,4 @@ WHERE message_number = 1;
    WHERE message_number = 1;
    ```
 3. Перезапустите бота
+

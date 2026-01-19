@@ -68,15 +68,11 @@ CHECK_POST_AGE = os.getenv("CHECK_POST_AGE", "false").lower() == "true"
 MAX_POST_AGE_HOURS = int(os.getenv("MAX_POST_AGE_HOURS", "23"))
 
 # Пути к картинкам для курса
-TASK_IMAGE_DIR = "media/tasks"  # Директория с картинками заданий (task_1.jpg, task_2.jpg и т.д.)
+TASK_IMAGE_DIR = "media/tasks"  # Директория с картинками заданий (task_1.jpg/.png, task_2.jpg/.png и т.д.)
 
-# Картинка для штрафов (ОДНА для всех штрафов)
-PENALTY_IMAGE = "media/penalties/penalty.jpg"
-
-# Картинки для напоминаний (ТРИ разные картинки)
-REMINDER_1_IMAGE = "media/reminders/reminder_1.jpg"  # Первое напоминание (8:50)
-REMINDER_2_IMAGE = "media/reminders/reminder_2.jpg"  # Второе напоминание (9:20)
-REMINDER_3_IMAGE = "media/reminders/reminder_3.jpg"  # Третье напоминание (9:35)
+# ПРИМЕЧАНИЕ: Расширения файлов определяются автоматически
+# Поддерживаются форматы: .jpg, .jpeg, .png, .webp
+# Бот автоматически найдет файл с любым из этих расширений
 
 # Проверка конфигурации
 if not BOT_TOKEN:
