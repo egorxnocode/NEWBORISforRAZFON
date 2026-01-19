@@ -103,3 +103,73 @@ def get_penalty_image_path(penalty_dir: str = "media/penalties") -> Optional[str
     """
     base_path = f"{penalty_dir}/penalty"
     return find_image(base_path)
+
+
+def get_welcome_image_path(media_dir: str = "media") -> Optional[str]:
+    """
+    Получает путь к приветственной картинке
+    
+    Args:
+        media_dir: Директория с медиафайлами
+        
+    Returns:
+        Полный путь к картинке или None если не найдена
+    """
+    base_path = f"{media_dir}/welcome"
+    return find_image(base_path)
+
+
+def get_channel_request_image_path(media_dir: str = "media") -> Optional[str]:
+    """
+    Получает путь к картинке запроса канала
+    
+    Args:
+        media_dir: Директория с медиафайлами
+        
+    Returns:
+        Полный путь к картинке или None если не найдена
+    """
+    base_path = f"{media_dir}/channel_request"
+    return find_image(base_path)
+
+
+def get_final_image_path(media_dir: str = "media") -> Optional[str]:
+    """
+    Получает путь к финальной картинке (после регистрации)
+    
+    Args:
+        media_dir: Директория с медиафайлами
+        
+    Returns:
+        Полный путь к картинке или None если не найдена
+    """
+    base_path = f"{media_dir}/final_message"
+    return find_image(base_path)
+
+
+def get_instruction_video_path(media_dir: str = "media") -> Optional[str]:
+    """
+    Получает путь к видео с инструкцией
+    
+    Args:
+        media_dir: Директория с медиафайлами
+        
+    Returns:
+        Полный путь к видео или None если не найдено
+    """
+    base_path = f"{media_dir}/instruction"
+    return find_media_file(base_path)
+
+
+def get_post_accepted_image_path(media_dir: str = "media") -> Optional[str]:
+    """
+    Получает путь к картинке принятия поста
+    
+    Args:
+        media_dir: Директория с медиафайлами
+        
+    Returns:
+        Полный путь к картинке или None если не найдена
+    """
+    base_path = f"{media_dir}/post_accepted"
+    return find_image(base_path)

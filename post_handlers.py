@@ -163,11 +163,12 @@ async def handle_post_link(message: Message, bot: Bot):
     # Удаляем все промежуточные сообщения (вопросы, запросы ссылок)
     await delete_intermediate_messages(bot, user_id)
     
-    # Отправляем подтверждение с картинкой
-    if os.path.exists(config.POST_ACCEPTED_IMAGE):
-        try:
-            photo = FSInputFile(config.POST_ACCEPTED_IMAGE)
-            await message.answer_photo(
+        # Отправляем подтверждение с картинкой (универсальный поиск)
+        post_accepted_image = get_post_accepted_image_path()
+        if post_accepted_image:
+            try:
+                photo = FSInputFile(post_accepted_image)
+                await message.answer_photo(
                 photo=photo,
                 caption=messages.MSG_POST_ACCEPTED
             )

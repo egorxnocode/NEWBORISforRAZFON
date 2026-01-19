@@ -14,11 +14,15 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 # ============================================================
 # ПУТИ К МЕДИАФАЙЛАМ - РЕГИСТРАЦИЯ
 # ============================================================
-WELCOME_IMAGE_PATH = "media/welcome.jpg"  # Путь к приветственной картинке
-EMAIL_REQUEST_IMAGE_PATH = "media/email_request.jpg"  # Картинка при запросе email (опционально)
-CHANNEL_REQUEST_IMAGE_PATH = "media/channel_request.jpg"  # Картинка при запросе канала
-FINAL_IMAGE_PATH = "media/final_message.jpg"  # Картинка после успешной регистрации
-INSTRUCTION_VIDEO_PATH = "media/instruction.mp4"  # Видео с инструкцией
+# ПРИМЕЧАНИЕ: Все пути определяются автоматически через media_helper.py
+# Поддерживаются форматы: .jpg, .jpeg, .png, .webp для изображений
+# Для видео: .mp4, .mov, .avi
+# Файлы должны находиться в папке media/ с соответствующими именами:
+# - welcome.jpg/.png/.jpeg/.webp - приветственная картинка
+# - channel_request.jpg/.png/.jpeg/.webp - картинка при запросе канала
+# - final_message.jpg/.png/.jpeg/.webp - картинка после регистрации
+# - instruction.mp4/.mov/.avi - видео с инструкцией
+# - post_accepted.jpg/.png/.jpeg/.webp - картинка принятия поста
 
 # ============================================================
 # НАСТРОЙКИ КУРСА
@@ -115,7 +119,6 @@ if not N8N_WEBHOOK_URL:
 # ============================================================
 # КАРТИНКИ ДЛЯ ЛОГИКИ ПОСТОВ
 # ============================================================
-
-# Картинка при принятии задания
-POST_ACCEPTED_IMAGE = "media/post_accepted.jpg"
+# Используется автоматический поиск через media_helper.py
+# Файл: media/post_accepted.jpg/.png/.jpeg/.webp
 

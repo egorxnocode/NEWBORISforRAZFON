@@ -20,7 +20,14 @@ import validators
 
 import config
 import messages
-from media_helper import find_image, get_task_image_path
+from media_helper import (
+    find_image, 
+    get_task_image_path,
+    get_welcome_image_path,
+    get_channel_request_image_path,
+    get_final_image_path,
+    get_instruction_video_path
+)
 from database import (
     check_email_exists,
     get_user_by_telegram_id,
@@ -1024,10 +1031,11 @@ async def handle_channel_input(message: Message, text: str):
             # Получает всю информацию о чате/канале
             # ============================================================
             
-            # Отправляем финальную картинку с текстом об успехе
-            if os.path.exists(config.FINAL_IMAGE_PATH):
+            # Отправляем финальную картинку с текстом об успехе (универсальный поиск)
+            final_image = get_final_image_path()
+            if final_image:
                 try:
-                    photo = FSInputFile(config.FINAL_IMAGE_PATH)
+                    photo = FSInputFile(final_image)
                     await message.answer_photo(photo=photo, caption=messages.MSG_CHANNEL_SUCCESS)
                 except Exception as e:
                     logger.error(f"Ошибка при отправке финальной картинки: {e}")
@@ -1035,10 +1043,11 @@ async def handle_channel_input(message: Message, text: str):
             else:
                 await message.answer(messages.MSG_CHANNEL_SUCCESS)
             
-            # Отправляем видео с инструкцией (формат 1920x1080)
-            if os.path.exists(config.INSTRUCTION_VIDEO_PATH):
+            # Отправляем видео с инструкцией (формат 1920x1080) (универсальный поиск)
+            instruction_video = get_instruction_video_path()
+            if instruction_video:
                 try:
-                    video = FSInputFile(config.INSTRUCTION_VIDEO_PATH)
+                    video = FSInputFile(instruction_video)
                     await message.answer_video(
                         video=video,
                         width=1920,
@@ -1048,7 +1057,7 @@ async def handle_channel_input(message: Message, text: str):
                 except Exception as e:
                     logger.error(f"Ошибка при отправке видео: {e}")
             else:
-                logger.warning(f"Видео с инструкцией не найдено: {config.INSTRUCTION_VIDEO_PATH}")
+                logger.warning(f"Видео с инструкцией не найдено в папке media/")
             
             # Если опоздал на первый день - отправляем первое задание
             if is_late_first_day:
