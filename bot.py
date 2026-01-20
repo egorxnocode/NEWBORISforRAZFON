@@ -91,6 +91,10 @@ scheduler = AsyncIOScheduler(timezone=pytz.timezone(config.TIMEZONE))
 channel_cache = {}
 CHANNEL_CACHE_TTL = 300  # 5 минут кэширования
 
+# Rate limiting для API запросов к Telegram (защита от флуд-контроля)
+last_channel_check_time = None
+MIN_DELAY_BETWEEN_CHECKS = 1.5  # Минимальная задержка между проверками каналов (секунды)
+
 
 def is_valid_email(email: str) -> bool:
     """Проверяет валидность email адреса"""
@@ -125,7 +129,7 @@ def extract_channel_username(text: str) -> str | None:
 
 async def is_channel_public(channel_username: str) -> bool:
     """
-    Проверяет, является ли канал публичным (с кэшированием для защиты от флуд-контроля)
+    Проверяет, является ли канал публичным (с кэшированием и rate limiting для защиты от флуд-контроля)
     
     Args:
         channel_username: Username канала без @
@@ -133,6 +137,8 @@ async def is_channel_public(channel_username: str) -> bool:
     Returns:
         True если канал публичный, False если приватный или не существует
     """
+    global last_channel_check_time
+    
     # Проверяем кэш
     if channel_username in channel_cache:
         cached = channel_cache[channel_username]
@@ -144,6 +150,17 @@ async def is_channel_public(channel_username: str) -> bool:
             # Кэш истек, удаляем
             del channel_cache[channel_username]
             logger.debug(f"🗑️ Кэш для @{channel_username} истек, удален")
+    
+    # Rate limiting: проверяем, прошло ли достаточно времени с последней проверки
+    if last_channel_check_time:
+        time_since_last_check = (datetime.now() - last_channel_check_time).total_seconds()
+        if time_since_last_check < MIN_DELAY_BETWEEN_CHECKS:
+            delay = MIN_DELAY_BETWEEN_CHECKS - time_since_last_check
+            logger.info(f"⏱️ Rate limiting: ожидание {delay:.1f}с перед проверкой @{channel_username}")
+            await asyncio.sleep(delay)
+    
+    # Обновляем время последней проверки
+    last_channel_check_time = datetime.now()
     
     # Кэша нет или он истек, делаем запрос к API
     try:
