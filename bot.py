@@ -1014,11 +1014,15 @@ async def handle_channel_input(message: Message, text: str):
         return
     
     # Проверяем, является ли канал публичным
-    is_public = await is_channel_public(channel_username)
+    # ВРЕМЕННО ОТКЛЮЧЕНО из-за флуд-контроля (можно включить через 30 минут)
+    # is_public = await is_channel_public(channel_username)
+    # 
+    # if not is_public:
+    #     await message.answer(messages.MSG_CHANNEL_PRIVATE)
+    #     return
     
-    if not is_public:
-        await message.answer(messages.MSG_CHANNEL_PRIVATE)
-        return
+    # Временно пропускаем проверку (принимаем любые каналы)
+    logger.warning(f"⚠️ Проверка публичности канала отключена (флуд-контроль)")
     
     # Канал публичный, сохраняем его
     channel_link = f"@{channel_username}"
