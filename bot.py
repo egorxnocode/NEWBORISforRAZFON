@@ -7,7 +7,7 @@ import asyncio
 import logging
 import re
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message, FSInputFile, CallbackQuery
@@ -86,6 +86,11 @@ dp = Dispatcher()
 # Планировщик задач
 scheduler = AsyncIOScheduler(timezone=pytz.timezone(config.TIMEZONE))
 
+# Кэш для проверки публичности каналов (защита от флуд-контроля)
+# Структура: {channel_username: {"is_public": bool, "expires_at": datetime}}
+channel_cache = {}
+CHANNEL_CACHE_TTL = 300  # 5 минут кэширования
+
 
 def is_valid_email(email: str) -> bool:
     """Проверяет валидность email адреса"""
@@ -120,7 +125,7 @@ def extract_channel_username(text: str) -> str | None:
 
 async def is_channel_public(channel_username: str) -> bool:
     """
-    Проверяет, является ли канал публичным
+    Проверяет, является ли канал публичным (с кэшированием для защиты от флуд-контроля)
     
     Args:
         channel_username: Username канала без @
@@ -128,14 +133,36 @@ async def is_channel_public(channel_username: str) -> bool:
     Returns:
         True если канал публичный, False если приватный или не существует
     """
+    # Проверяем кэш
+    if channel_username in channel_cache:
+        cached = channel_cache[channel_username]
+        # Если кэш не истек, возвращаем закэшированный результат
+        if datetime.now() < cached["expires_at"]:
+            logger.debug(f"✅ Канал @{channel_username} найден в кэше: {cached['is_public']}")
+            return cached["is_public"]
+        else:
+            # Кэш истек, удаляем
+            del channel_cache[channel_username]
+            logger.debug(f"🗑️ Кэш для @{channel_username} истек, удален")
+    
+    # Кэша нет или он истек, делаем запрос к API
     try:
-        # Пробуем получить информацию о канале
+        logger.debug(f"🔍 Проверяю канал @{channel_username} через API...")
         chat = await bot.get_chat(f"@{channel_username}")
-        # Если получили информацию, значит канал публичный
-        return True
+        is_public = True
+        logger.info(f"✅ Канал @{channel_username} публичный")
     except Exception as e:
-        logger.error(f"Ошибка при проверке канала @{channel_username}: {e}")
-        return False
+        is_public = False
+        logger.error(f"❌ Ошибка при проверке канала @{channel_username}: {e}")
+    
+    # Сохраняем результат в кэш
+    channel_cache[channel_username] = {
+        "is_public": is_public,
+        "expires_at": datetime.now() + timedelta(seconds=CHANNEL_CACHE_TTL)
+    }
+    logger.debug(f"💾 Результат для @{channel_username} сохранен в кэш на {CHANNEL_CACHE_TTL}с")
+    
+    return is_public
 
 
 def is_admin(user_id: int) -> bool:
