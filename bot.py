@@ -503,6 +503,49 @@ async def handle_final3_command(message: Message):
     logger.info(f"Админ {user_id} отправил финальное сообщение 3 вручную")
 
 
+@dp.message(Command("fix26"))
+async def handle_fix26_command(message: Message):
+    """Админ-команда: исправление пользователей с current_task > 2"""
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id):
+        await message.answer("❌ У вас нет прав для выполнения этой команды.")
+        return
+    
+    logger.info(f"🔧 Админ {user_id} запустил команду /fix26")
+    
+    await message.answer("🔧 Запускаю исправление пользователей...")
+    
+    # Выполняем исправление
+    fixed_count, fixed_ids = await fix_users_after_task_2()
+    
+    if fixed_count == 0:
+        await message.answer("✅ Пользователей для исправления не найдено.\nВсе пользователи имеют current_task <= 2.")
+        logger.info("✅ /fix26: пользователей для исправления не найдено")
+    else:
+        # Формируем отчет
+        report = f"""✅ <b>Исправление завершено!</b>
+
+📊 Исправлено пользователей: <b>{fixed_count}</b>
+
+🔧 Выполнено:
+• current_task = 2
+• course_state = waiting_task_2
+• Обнулены post_2...post_14 (post_1 сохранен)
+
+👥 Telegram ID исправленных пользователей:
+{', '.join(map(str, fixed_ids[:10]))}"""
+        
+        if fixed_count > 10:
+            report += f"\n... и еще {fixed_count - 10} пользователей"
+        
+        await message.answer(report)
+        logger.info(f"✅ /fix26: исправлено {fixed_count} пользователей: {fixed_ids}")
+        
+        # Отчёт в мониторинговый чат
+        await monitor.send_admin_report(bot, f"🔧 /fix26: исправлено {fixed_count} пользователей")
+
+
 @dp.message(Command("group"))
 async def cmd_group(message: Message):
     """
