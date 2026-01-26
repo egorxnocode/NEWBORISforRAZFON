@@ -40,7 +40,8 @@ from database import (
     mark_task_completed,
     get_user_course_state,
     CourseState,
-    get_task_by_number
+    get_task_by_number,
+    fix_users_after_task_2
 )
 from course import (
     start_course,
