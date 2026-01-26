@@ -12,6 +12,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 import config
 import messages
+from media_helper import get_post_accepted_image_path
 from database import (
     get_user_by_telegram_id,
     get_task_by_number,
