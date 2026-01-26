@@ -730,7 +730,7 @@ async def fix_users_after_task_2() -> tuple[int, list]:
             # Обновляем пользователя
             update_data = {
                 "current_task": 2,
-                "course_state": CourseState.WAITING_TASK_2.value,
+                "course_state": CourseState.WAITING_TASK.format(2),
                 # Обнуляем все post_* кроме post_1
                 "post_2": None,
                 "post_3": None,
