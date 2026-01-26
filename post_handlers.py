@@ -22,7 +22,9 @@ from database import (
     get_user_post_link,
     add_message_to_delete,
     get_user_messages_to_delete,
-    clear_messages_to_delete
+    clear_messages_to_delete,
+    get_user_last_task_message_id,
+    save_user_last_task_message_id
 )
 from post_validator import validate_post_link
 from ai_helper import transcribe_voice, generate_post_with_ai
@@ -157,6 +159,17 @@ async def handle_post_link(message: Message, bot: Bot):
     
     # Отмечаем задание как выполненное
     await mark_task_completed(user_id, current_task)
+    
+    # Удаляем сообщение с заданием (если оно есть)
+    task_message_id = await get_user_last_task_message_id(user_id)
+    if task_message_id:
+        try:
+            await bot.delete_message(chat_id=user_id, message_id=task_message_id)
+            logger.info(f"✅ Удалено сообщение с заданием (ID: {task_message_id}) для пользователя {user_id}")
+            # Обнуляем ID сообщения с заданием
+            await save_user_last_task_message_id(user_id, 0)
+        except Exception as e:
+            logger.warning(f"⚠️ Не удалось удалить сообщение с заданием {task_message_id}: {e}")
     
     # Очищаем состояние
     clear_user_state(user_id)
