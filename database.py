@@ -691,3 +691,56 @@ async def check_if_user_finished_course(telegram_id: int) -> bool:
     except Exception as e:
         print(f"Ошибка при проверке завершения курса для {telegram_id}: {e}")
         return False
+
+
+async def fix_users_after_task_2() -> tuple[int, list]:
+    """
+    Исправляет пользователей с current_task > 2:
+    - Обнуляет все post_* кроме post_1
+    - Устанавливает current_task = 2
+    - Устанавливает course_state = waiting_task_2
+    
+    Returns:
+        Кортеж (количество исправленных, список telegram_id)
+    """
+    try:
+        # Получаем всех пользователей с current_task > 2
+        response = supabase.table(TABLE_NAME).select("*").gt("current_task", 2).execute()
+        users = response.data
+        
+        if not users:
+            return 0, []
+        
+        fixed_ids = []
+        
+        for user in users:
+            telegram_id = user.get("telegram_id")
+            
+            # Обновляем пользователя
+            update_data = {
+                "current_task": 2,
+                "course_state": CourseState.WAITING_TASK_2.value,
+                # Обнуляем все post_* кроме post_1
+                "post_2": None,
+                "post_3": None,
+                "post_4": None,
+                "post_5": None,
+                "post_6": None,
+                "post_7": None,
+                "post_8": None,
+                "post_9": None,
+                "post_10": None,
+                "post_11": None,
+                "post_12": None,
+                "post_13": None,
+                "post_14": None
+            }
+            
+            supabase.table(TABLE_NAME).update(update_data).eq("telegram_id", telegram_id).execute()
+            fixed_ids.append(telegram_id)
+        
+        return len(fixed_ids), fixed_ids
+        
+    except Exception as e:
+        print(f"Ошибка при исправлении пользователей: {e}")
+        return 0, []
