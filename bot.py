@@ -520,7 +520,7 @@ async def handle_fix26_command(message: Message):
     fixed_count, fixed_ids = await fix_users_after_task_2()
     
     if fixed_count == 0:
-        await message.answer("✅ Пользователей для исправления не найдено.\nВсе пользователи имеют current_task <= 2.")
+        await message.answer("✅ Пользователей для исправления не найдено.\nВсе пользователи имеют current_task не больше 2.")
         logger.info("✅ /fix26: пользователей для исправления не найдено")
     else:
         # Отправляем сообщение всем исправленным пользователям
