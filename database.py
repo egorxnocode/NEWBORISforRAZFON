@@ -704,17 +704,28 @@ async def fix_users_after_task_2() -> tuple[int, list]:
         Кортеж (количество исправленных, список telegram_id)
     """
     try:
+        print(f"[DEBUG] fix_users_after_task_2: начало выполнения")
+        
         # Получаем всех пользователей с current_task > 2
         response = supabase.table(TABLE_NAME).select("*").gt("current_task", 2).execute()
         users = response.data
         
+        print(f"[DEBUG] fix_users_after_task_2: найдено пользователей с current_task > 2: {len(users) if users else 0}")
+        
         if not users:
+            print(f"[DEBUG] fix_users_after_task_2: пользователей не найдено, выход")
             return 0, []
+        
+        # Выводим первых нескольких для отладки
+        if users:
+            for i, user in enumerate(users[:3]):
+                print(f"[DEBUG] Пользователь {i+1}: telegram_id={user.get('telegram_id')}, current_task={user.get('current_task')}")
         
         fixed_ids = []
         
         for user in users:
             telegram_id = user.get("telegram_id")
+            current_task_before = user.get("current_task")
             
             # Обновляем пользователя
             update_data = {
@@ -736,11 +747,15 @@ async def fix_users_after_task_2() -> tuple[int, list]:
                 "post_14": None
             }
             
+            print(f"[DEBUG] Обновляю пользователя {telegram_id}: current_task {current_task_before} -> 2")
             supabase.table(TABLE_NAME).update(update_data).eq("telegram_id", telegram_id).execute()
             fixed_ids.append(telegram_id)
         
+        print(f"[DEBUG] fix_users_after_task_2: успешно исправлено {len(fixed_ids)} пользователей")
         return len(fixed_ids), fixed_ids
         
     except Exception as e:
-        print(f"Ошибка при исправлении пользователей: {e}")
+        print(f"[ERROR] Ошибка при исправлении пользователей: {e}")
+        import traceback
+        traceback.print_exc()
         return 0, []
