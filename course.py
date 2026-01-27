@@ -548,13 +548,13 @@ async def send_reminder(bot: Bot, reminder_type: str):
         # Выбираем сообщение И картинку в зависимости от типа напоминания
         if reminder_type == "reminder_1":
             message_text = messages.MSG_REMINDER_1
-            reminder_image = config.REMINDER_1_IMAGE
+            reminder_image = get_reminder_image_path(1)
         elif reminder_type == "reminder_2":
             message_text = messages.MSG_REMINDER_2
-            reminder_image = config.REMINDER_2_IMAGE
+            reminder_image = get_reminder_image_path(2)
         else:
             message_text = messages.MSG_REMINDER_3
-            reminder_image = config.REMINDER_3_IMAGE
+            reminder_image = get_reminder_image_path(3)
         
         # Отправляем каждому
         success_count = 0
@@ -749,11 +749,11 @@ async def send_penalty_message(bot: Bot, telegram_id: int, penalties: int):
         else:
             message_text = messages.MSG_PENALTY_4
         
-        # Используем одну картинку для всех штрафов
-        image_path = config.PENALTY_IMAGE
+        # Используем одну картинку для всех штрафов (универсальный поиск)
+        image_path = get_penalty_image_path()
         
         # Отправляем
-        if os.path.exists(image_path):
+        if image_path:
             photo = FSInputFile(image_path)
             await bot.send_photo(
                 chat_id=telegram_id,
