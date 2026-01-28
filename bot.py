@@ -839,12 +839,16 @@ async def callback_submit_task(callback: CallbackQuery):
             pass  # Игнорируем ошибку "query is too old"
         return
     
-    # Проверяем, участвует ли пользователь в курсе
+    # Проверяем, участвует ли пользователь в курсе И находится в активном состоянии
     course_state = await get_user_course_state(user_id)
     
-    if course_state not in [CourseState.IN_PROGRESS] and not course_state.startswith("waiting_task"):
+    # Кнопки работают ТОЛЬКО в состоянии IN_PROGRESS (не в waiting_task_X)
+    if course_state != CourseState.IN_PROGRESS:
         try:
-            await callback.answer(messages.MSG_NOT_IN_COURSE, show_alert=True)
+            if course_state.startswith("waiting_task"):
+                await callback.answer("⏳ Ожидайте следующее задание. Кнопки станут активны после получения задания.", show_alert=True)
+            else:
+                await callback.answer(messages.MSG_NOT_IN_COURSE, show_alert=True)
         except Exception:
             pass
         return
