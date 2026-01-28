@@ -842,8 +842,14 @@ async def callback_submit_task(callback: CallbackQuery):
     # Проверяем, участвует ли пользователь в курсе И находится в активном состоянии
     course_state = await get_user_course_state(user_id)
     
-    # Кнопки работают ТОЛЬКО в состоянии IN_PROGRESS (не в waiting_task_X)
-    if course_state != CourseState.IN_PROGRESS:
+    # Кнопки работают:
+    # - В состоянии IN_PROGRESS (все пользователи)
+    # - В состоянии LIMITED (опоздавшие могут писать посты всегда)
+    if course_state == CourseState.LIMITED:
+        # Опоздавшие могут писать посты в любое время
+        pass
+    elif course_state != CourseState.IN_PROGRESS:
+        # Обычные пользователи только в IN_PROGRESS
         try:
             if course_state.startswith("waiting_task"):
                 await callback.answer("⏳ Ожидайте следующее задание. Кнопки станут активны после получения задания.", show_alert=True)
