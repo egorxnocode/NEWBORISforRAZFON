@@ -4,18 +4,23 @@
 
 -- Таблица с текстами для каждой группы (один текст на группу)
 CREATE TABLE IF NOT EXISTS group_texts (
-    group_number INT PRIMARY KEY CHECK (group_number >= 1 AND group_number <= 5),
+    group_number INT PRIMARY KEY CHECK (group_number >= 1 AND group_number <= 10),
     text TEXT NOT NULL DEFAULT '',
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Заполняем начальные значения для 5 групп
+-- Заполняем начальные значения для 10 групп
 INSERT INTO group_texts (group_number, text) VALUES 
     (1, ''),
     (2, ''),
     (3, ''),
     (4, ''),
-    (5, '')
+    (5, ''),
+    (6, ''),
+    (7, ''),
+    (8, ''),
+    (9, ''),
+    (10, '')
 ON CONFLICT (group_number) DO NOTHING;
 
 -- Группа 1 (только telegram_id)

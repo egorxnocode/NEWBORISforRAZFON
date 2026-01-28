@@ -603,12 +603,12 @@ async def get_group_data(group_number: int) -> tuple[list, str]:
     Получает данные группы: список telegram_id и текст для рассылки
     
     Args:
-        group_number: Номер группы (1-5)
+        group_number: Номер группы (1-10)
         
     Returns:
         Кортеж (список telegram_id, текст сообщения)
     """
-    if group_number < 1 or group_number > 5:
+    if group_number < 1 or group_number > 10:
         return [], ""
     
     table_name = f"group{group_number}"
@@ -634,7 +634,7 @@ async def get_group_users_count(group_number: int) -> int:
     Получает количество пользователей в группе
     
     Args:
-        group_number: Номер группы (1-5)
+        group_number: Номер группы (1-10)
         
     Returns:
         Количество пользователей

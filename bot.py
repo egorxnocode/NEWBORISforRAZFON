@@ -573,13 +573,13 @@ async def handle_fix26_command(message: Message):
 @dp.message(Command("group"))
 async def cmd_group(message: Message):
     """
-    Команда /group N - рассылка сообщения группе N (1-5)
+    Команда /group N - рассылка сообщения группе N (1-10)
     
     Использование:
         /group 1 - рассылка группе 1
         /group 2 - рассылка группе 2
         ...
-        /group 5 - рассылка группе 5
+        /group 10 - рассылка группе 10
     """
     user_id = message.from_user.id
     
@@ -593,18 +593,18 @@ async def cmd_group(message: Message):
     
     if len(parts) < 2:
         # Неверный формат - отправляем подсказку в мониторинг
-        await monitor.send_admin_report(bot, "❌ /group\n\nИспользование: /group N (где N = 1-5)")
+        await monitor.send_admin_report(bot, "❌ /group\n\nИспользование: /group N (где N = 1-10)")
         return
     
     # Получаем номер группы
     try:
         group_number = int(parts[1])
     except ValueError:
-        await monitor.send_admin_report(bot, f"❌ /group {parts[1]}\n\nНомер группы должен быть числом от 1 до 5")
+        await monitor.send_admin_report(bot, f"❌ /group {parts[1]}\n\nНомер группы должен быть числом от 1 до 10")
         return
     
-    if group_number < 1 or group_number > 5:
-        await monitor.send_admin_report(bot, f"❌ /group {group_number}\n\nНомер группы должен быть от 1 до 5")
+    if group_number < 1 or group_number > 10:
+        await monitor.send_admin_report(bot, f"❌ /group {group_number}\n\nНомер группы должен быть от 1 до 10")
         return
     
     # Получаем данные группы из БД
