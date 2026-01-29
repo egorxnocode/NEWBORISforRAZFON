@@ -884,8 +884,7 @@ async def callback_submit_task(callback: CallbackQuery):
     if await is_user_writing_post(user_id):
         try:
             await callback.answer(
-                "⚠️ Сначала завершите написание поста через AI-генератор!\n\n"
-                "Или отмените операцию командой /cancel",
+                "⚠️ Сначала завершите написание поста!",
                 show_alert=True
             )
         except Exception:
