@@ -814,6 +814,13 @@ async def callback_write_post(callback: CallbackQuery):
         await callback.answer()
     except Exception:
         pass  # Игнорируем ошибку "query is too old"
+    
+    # Удаляем сообщение с кнопками после нажатия
+    try:
+        await callback.message.delete()
+    except Exception as e:
+        logger.warning(f"Не удалось удалить сообщение с кнопками: {e}")
+    
     await handle_write_post_button(user_id, callback.message, bot)
 
 
@@ -863,6 +870,13 @@ async def callback_submit_task(callback: CallbackQuery):
         await callback.answer()
     except Exception:
         pass  # Игнорируем ошибку "query is too old" при перезапуске бота
+    
+    # Удаляем сообщение с кнопками после нажатия
+    try:
+        await callback.message.delete()
+    except Exception as e:
+        logger.warning(f"Не удалось удалить сообщение с кнопками: {e}")
+    
     await handle_submit_task_button(user_id, callback.message, bot)
 
 
