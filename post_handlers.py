@@ -345,6 +345,12 @@ async def generate_post(message: Message, bot: Bot):
     if not generated_text:
         # Ошибка или таймаут
         clear_user_state(user_id)
+        
+        # Сбрасываем флаг "пишет пост" при ошибке
+        from database import set_user_writing_post
+        await set_user_writing_post(user_id, False)
+        logger.info(f"🔓 Пользователь {user_id} завершил писать пост (ошибка, is_writing_post = FALSE)")
+        
         err_msg = await message.answer(messages.MSG_GENERATION_TIMEOUT)
         await add_message_to_delete(user_id, err_msg.message_id)
         
@@ -372,6 +378,11 @@ async def generate_post(message: Message, bot: Bot):
         "Опубликуйте этот пост в своем канале и нажмите кнопку:",
         reply_markup=keyboard
     )
+    
+    # Сбрасываем флаг "пишет пост" - пост сгенерирован успешно
+    from database import set_user_writing_post
+    await set_user_writing_post(user_id, False)
+    logger.info(f"🔓 Пользователь {user_id} завершил писать пост (успешно, is_writing_post = FALSE)")
     
     # Очищаем состояние (но оставляем в ожидании ссылки)
     clear_user_state(user_id)

@@ -553,6 +553,47 @@ async def save_user_last_task_message_id(telegram_id: int, message_id: int) -> b
         return False
 
 
+async def set_user_writing_post(telegram_id: int, is_writing: bool) -> bool:
+    """
+    Устанавливает флаг is_writing_post для пользователя
+    
+    Args:
+        telegram_id: ID пользователя в Telegram
+        is_writing: True - начал писать пост, False - закончил
+        
+    Returns:
+        True если успешно, False если ошибка
+    """
+    try:
+        supabase.table(TABLE_NAME).update({
+            "is_writing_post": is_writing
+        }).eq("telegram_id", telegram_id).execute()
+        return True
+    except Exception as e:
+        print(f"Ошибка при установке is_writing_post для {telegram_id}: {e}")
+        return False
+
+
+async def is_user_writing_post(telegram_id: int) -> bool:
+    """
+    Проверяет, пишет ли пользователь пост через AI-генератор
+    
+    Args:
+        telegram_id: ID пользователя в Telegram
+        
+    Returns:
+        True если пользователь в процессе написания поста, False иначе
+    """
+    try:
+        response = supabase.table(TABLE_NAME).select("is_writing_post").eq("telegram_id", telegram_id).execute()
+        if response.data and len(response.data) > 0:
+            return response.data[0].get("is_writing_post", False) or False
+        return False
+    except Exception as e:
+        print(f"Ошибка при проверке is_writing_post для {telegram_id}: {e}")
+        return False
+
+
 async def get_user_messages_to_delete(telegram_id: int) -> list:
     """Получает список ID сообщений для удаления"""
     user = await get_user_by_telegram_id(telegram_id)

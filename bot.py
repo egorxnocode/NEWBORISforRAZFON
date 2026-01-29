@@ -570,6 +570,34 @@ async def handle_fix26_command(message: Message):
         await monitor.send_admin_report(bot, f"🔧 /fix26: исправлено {fixed_count} пользователей, отправлено {sent_count} сообщений")
 
 
+@dp.message(Command("cancel"))
+async def cmd_cancel(message: Message):
+    """
+    Команда /cancel - отмена текущей операции (написание поста)
+    """
+    user_id = message.from_user.id
+    
+    # Проверяем, пишет ли пользователь пост
+    from database import is_user_writing_post, set_user_writing_post
+    from post_handlers import clear_user_state
+    
+    if await is_user_writing_post(user_id):
+        # Сбрасываем флаг
+        await set_user_writing_post(user_id, False)
+        # Очищаем состояние диалога
+        clear_user_state(user_id)
+        
+        logger.info(f"✅ Пользователь {user_id} отменил написание поста через /cancel")
+        await message.answer(
+            "✅ Операция отменена.\n\n"
+            "Вы можете начать заново, нажав кнопку \"Напиши пост\"."
+        )
+    else:
+        await message.answer(
+            "❌ Нет активных операций для отмены."
+        )
+
+
 @dp.message(Command("group"))
 async def cmd_group(message: Message):
     """
@@ -815,6 +843,11 @@ async def callback_write_post(callback: CallbackQuery):
     except Exception:
         pass  # Игнорируем ошибку "query is too old"
     
+    # Устанавливаем флаг "пишет пост" для блокировки кнопки "Сдать задание"
+    from database import set_user_writing_post
+    await set_user_writing_post(user_id, True)
+    logger.info(f"🔒 Пользователь {user_id} начал писать пост (is_writing_post = TRUE)")
+    
     # Удаляем сообщение с кнопками после нажатия
     try:
         await callback.message.delete()
@@ -844,6 +877,19 @@ async def callback_submit_task(callback: CallbackQuery):
             await callback.answer(messages.MSG_USER_BLOCKED, show_alert=True)
         except Exception:
             pass  # Игнорируем ошибку "query is too old"
+        return
+    
+    # НОВАЯ ПРОВЕРКА: Блокируем если пользователь пишет пост через AI
+    from database import is_user_writing_post
+    if await is_user_writing_post(user_id):
+        try:
+            await callback.answer(
+                "⚠️ Сначала завершите написание поста через AI-генератор!\n\n"
+                "Или отмените операцию командой /cancel",
+                show_alert=True
+            )
+        except Exception:
+            pass
         return
     
     # Проверяем, участвует ли пользователь в курсе И находится в активном состоянии
