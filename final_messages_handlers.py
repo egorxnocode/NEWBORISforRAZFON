@@ -1,235 +1,172 @@
 # -*- coding: utf-8 -*-
 """
-Модуль для обработки финальных сообщений 15 дня
-После 14 задания бот отправляет 3 финальных сообщения всем пользователям
+Модуль для обработки финальных сообщений 15 и 16 дня
+- День 15: одно сообщение в 10:00
+- День 16: три сообщения в 10:00, 15:00, 15:55
 """
 
 import logging
 from datetime import datetime
 from aiogram import Bot
-from aiogram.types import FSInputFile
 from database import supabase, TABLE_NAME
-import os
 
 logger = logging.getLogger(__name__)
 
-# Название таблицы финальных сообщений
 FINAL_MESSAGES_TABLE = "final_messages"
 
 
-async def get_final_message(message_number: int) -> dict:
+def _sent_column(course_day: int, message_number: int) -> str:
+    """Имя колонки в users для отметки отправки."""
+    if course_day == 15:
+        return "final_message_15_sent"
+    return f"final_message_{message_number}_sent"
+
+
+async def get_final_message(course_day: int, message_number: int) -> dict:
     """
-    Получает финальное сообщение из БД
+    Получает финальное сообщение из БД по дню и номеру.
     
     Args:
-        message_number: Номер сообщения (1, 2, 3)
-        
-    Returns:
-        Словарь с данными сообщения
+        course_day: 15 или 16
+        message_number: номер сообщения (для дня 15 всегда 1, для дня 16 — 1, 2, 3)
     """
     try:
-        response = supabase.table(FINAL_MESSAGES_TABLE).select("*").eq("message_number", message_number).execute()
-        
+        response = (
+            supabase.table(FINAL_MESSAGES_TABLE)
+            .select("*")
+            .eq("course_day", course_day)
+            .eq("message_number", message_number)
+            .execute()
+        )
         if response.data and len(response.data) > 0:
             return response.data[0]
-        
-        logger.error(f"Финальное сообщение {message_number} не найдено в БД")
+        logger.error(f"Финальное сообщение day={course_day} num={message_number} не найдено в БД")
         return None
-        
     except Exception as e:
-        logger.error(f"Ошибка при получении финального сообщения {message_number}: {e}")
+        logger.error(f"Ошибка при получении финального сообщения ({course_day}, {message_number}): {e}")
         return None
 
 
-async def get_users_for_final_message(message_number: int) -> list:
+async def get_users_for_final_message(course_day: int, message_number: int) -> list:
     """
-    Получает пользователей, которым нужно отправить финальное сообщение
-    
-    Args:
-        message_number: Номер сообщения (1, 2, 3)
-        
-    Returns:
-        Список пользователей
+    Получает пользователей, которым нужно отправить финальное сообщение.
+    Условия: current_task >= 15 и ещё не отправлено это сообщение.
     """
     try:
-        # Получаем всех пользователей, которые:
-        # 1. Завершили 14 задание (current_task >= 15)
-        # 2. Ещё не получили это финальное сообщение
-        column_name = f"final_message_{message_number}_sent"
-        
-        response = supabase.table(TABLE_NAME).select("*").gte("current_task", 15).eq(column_name, False).execute()
-        
+        col = _sent_column(course_day, message_number)
+        response = (
+            supabase.table(TABLE_NAME)
+            .select("*")
+            .gte("current_task", 15)
+            .eq(col, False)
+            .execute()
+        )
         if response.data:
-            logger.info(f"Найдено {len(response.data)} пользователей для финального сообщения {message_number}")
+            logger.info(f"Найдено {len(response.data)} пользователей для финального сообщения day={course_day} num={message_number}")
             return response.data
-        
-        logger.info(f"Нет пользователей для финального сообщения {message_number}")
+        logger.info(f"Нет пользователей для финального сообщения day={course_day} num={message_number}")
         return []
-        
     except Exception as e:
-        logger.error(f"Ошибка при получении пользователей для финального сообщения {message_number}: {e}")
+        logger.error(f"Ошибка при получении пользователей для финального сообщения ({course_day}, {message_number}): {e}")
         return []
 
 
-async def mark_final_message_sent(telegram_id: int, message_number: int) -> bool:
-    """
-    Отмечает финальное сообщение как отправленное
-    
-    Args:
-        telegram_id: Telegram ID пользователя
-        message_number: Номер сообщения (1, 2, 3)
-        
-    Returns:
-        True если успешно
-    """
+async def mark_final_message_sent(telegram_id: int, course_day: int, message_number: int) -> bool:
+    """Отмечает финальное сообщение как отправленное."""
     try:
-        column_name = f"final_message_{message_number}_sent"
-        
-        supabase.table(TABLE_NAME).update({
-            column_name: True
-        }).eq("telegram_id", telegram_id).execute()
-        
+        col = _sent_column(course_day, message_number)
+        supabase.table(TABLE_NAME).update({col: True}).eq("telegram_id", telegram_id).execute()
         return True
-        
     except Exception as e:
-        logger.error(f"Ошибка при отметке финального сообщения {message_number} для {telegram_id}: {e}")
+        logger.error(f"Ошибка при отметке финального сообщения ({course_day}, {message_number}) для {telegram_id}: {e}")
         return False
 
 
-async def send_final_message_to_user(bot: Bot, user: dict, message_data: dict, message_number: int) -> bool:
-    """
-    Отправляет финальное сообщение пользователю
-    
-    Args:
-        bot: Экземпляр бота
-        user: Данные пользователя из БД
-        message_data: Данные сообщения из БД
-        message_number: Номер сообщения
-        
-    Returns:
-        True если успешно отправлено
-    """
+async def send_final_message_to_user(
+    bot: Bot, user: dict, message_data: dict, course_day: int, message_number: int
+) -> bool:
+    """Отправляет финальное сообщение пользователю (только текст)."""
     telegram_id = user.get("telegram_id")
-    
     try:
         message_text = message_data.get("message_text", "")
-        
-        # Отправляем сообщение (только текст, без медиафайлов)
-        await bot.send_message(
-            chat_id=telegram_id,
-            text=message_text
-        )
-        
-        # Отмечаем как отправленное
-        await mark_final_message_sent(telegram_id, message_number)
-        
-        logger.info(f"✅ Финальное сообщение {message_number} отправлено пользователю {telegram_id}")
+        await bot.send_message(chat_id=telegram_id, text=message_text)
+        await mark_final_message_sent(telegram_id, course_day, message_number)
+        logger.info(f"✅ Финальное сообщение day={course_day} num={message_number} отправлено пользователю {telegram_id}")
         return True
-        
     except Exception as e:
-        logger.error(f"❌ Ошибка при отправке финального сообщения {message_number} пользователю {telegram_id}: {e}")
+        logger.error(f"❌ Ошибка при отправке финального сообщения day={course_day} num={message_number} пользователю {telegram_id}: {e}")
         return False
 
 
-async def send_final_message_to_all(bot: Bot, message_number: int):
+async def send_final_message_to_all(bot: Bot, course_day: int, message_number: int):
     """
-    Отправляет финальное сообщение всем пользователям
+    Отправляет финальное сообщение всем подходящим пользователям.
     
     Args:
-        bot: Экземпляр бота
-        message_number: Номер сообщения (1, 2, 3)
+        bot: экземпляр бота
+        course_day: 15 или 16
+        message_number: 1 для дня 15; 1, 2, 3 для дня 16
     """
-    logger.info(f"🚀 Начинаем отправку финального сообщения {message_number}")
+    logger.info(f"🚀 Начинаем отправку финального сообщения day={course_day} num={message_number}")
     
-    # Получаем данные сообщения
-    message_data = await get_final_message(message_number)
+    message_data = await get_final_message(course_day, message_number)
     if not message_data:
-        logger.error(f"Не удалось получить данные финального сообщения {message_number}")
+        logger.error(f"Не удалось получить данные финального сообщения day={course_day} num={message_number}")
         return
     
-    # Получаем пользователей
-    users = await get_users_for_final_message(message_number)
+    users = await get_users_for_final_message(course_day, message_number)
     if not users:
-        logger.info(f"Нет пользователей для отправки финального сообщения {message_number}")
+        logger.info(f"Нет пользователей для отправки финального сообщения day={course_day} num={message_number}")
         return
     
-    # Отправляем сообщения
     sent_count = 0
     failed_count = 0
-    
     for user in users:
-        success = await send_final_message_to_user(bot, user, message_data, message_number)
+        success = await send_final_message_to_user(bot, user, message_data, course_day, message_number)
         if success:
             sent_count += 1
         else:
             failed_count += 1
     
-    logger.info(f"✅ Финальное сообщение {message_number} отправлено: {sent_count} успешно, {failed_count} ошибок")
+    logger.info(f"✅ Финальное сообщение day={course_day} num={message_number}: отправлено {sent_count}, ошибок {failed_count}")
 
 
 async def is_course_day_15(current_day: int) -> bool:
-    """
-    Проверяет, настал ли 15-й день курса
-    
-    Args:
-        current_day: Текущий день курса из course_state
-        
-    Returns:
-        True если 15-й день
-    """
+    """Проверяет, настал ли 15-й день курса."""
     return current_day >= 15
 
 
 async def should_ignore_user_input(telegram_id: int) -> bool:
     """
-    Проверяет, нужно ли игнорировать ввод пользователя
-    После 14 задания бот не реагирует на пользователей до конца 15 дня
-    
-    Args:
-        telegram_id: Telegram ID пользователя
-        
-    Returns:
-        True если нужно игнорировать
+    Игнорировать ввод, если пользователь завершил 14 задание (current_task >= 15),
+    но ещё не получил все финальные сообщения 16 дня (третье сообщение в 15:55).
     """
     try:
-        response = supabase.table(TABLE_NAME).select("current_task, final_message_3_sent").eq("telegram_id", telegram_id).execute()
-        
+        response = (
+            supabase.table(TABLE_NAME)
+            .select("current_task, final_message_3_sent")
+            .eq("telegram_id", telegram_id)
+            .execute()
+        )
         if response.data and len(response.data) > 0:
             user = response.data[0]
             current_task = user.get("current_task", 0)
             final_message_3_sent = user.get("final_message_3_sent", False)
-            
-            # Игнорируем, если ЗАВЕРШИЛ 14 задание (current_task >= 15), но ещё не получил все финальные сообщения
-            # current_task = 14 означает что пользователь НА 14 задании, а не завершил его
-            # current_task = 15 означает что пользователь ЗАВЕРШИЛ 14 задание
             if current_task >= 15 and not final_message_3_sent:
                 return True
-        
         return False
-        
     except Exception as e:
         logger.error(f"Ошибка при проверке should_ignore_user_input для {telegram_id}: {e}")
         return False
 
 
 async def mark_course_finished(telegram_id: int) -> bool:
-    """
-    Отмечает время завершения курса (после 14 задания)
-    
-    Args:
-        telegram_id: Telegram ID пользователя
-        
-    Returns:
-        True если успешно
-    """
+    """Отмечает время завершения курса (после 14 задания)."""
     try:
         supabase.table(TABLE_NAME).update({
             "course_finished_at": datetime.now().isoformat()
         }).eq("telegram_id", telegram_id).execute()
-        
         return True
-        
     except Exception as e:
         logger.error(f"Ошибка при отметке завершения курса для {telegram_id}: {e}")
         return False
-

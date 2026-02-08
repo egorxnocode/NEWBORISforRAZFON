@@ -114,6 +114,7 @@ async def stop_course(bot: Bot, admin_id: int) -> dict:
                         'post_12': None,
                         'post_13': None,
                         'post_14': None,
+                        'final_message_15_sent': False,
                         'final_message_1_sent': False,
                         'final_message_2_sent': False,
                         'final_message_3_sent': False,

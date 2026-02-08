@@ -440,67 +440,80 @@ async def cmd_fix_excluded(message: Message):
         await monitor.send_admin_report(bot, f"❌ /fix_excluded\n\nОшибка: {e}")
 
 
-@dp.message(Command("final1"))
-async def handle_final1_command(message: Message):
-    """Админ команда: отправить финальное сообщение 1 вручную"""
+@dp.message(Command("final15"))
+async def handle_final15_command(message: Message):
+    """Админ команда: отправить единственное финальное сообщение дня 15 вручную"""
     user_id = message.from_user.id
     
     if not is_admin(user_id):
         await message.answer("❌ У вас нет прав для выполнения этой команды.")
         return
     
-    await message.answer("📤 Отправляю финальное сообщение 1...")
+    await message.answer("📤 Отправляю финальное сообщение дня 15...")
     
     from final_messages_handlers import send_final_message_to_all
-    await send_final_message_to_all(bot, message_number=1)
+    await send_final_message_to_all(bot, course_day=15, message_number=1)
     
-    await message.answer("✅ Финальное сообщение 1 отправлено!")
+    await message.answer("✅ Финальное сообщение дня 15 отправлено!")
+    await monitor.send_admin_report(bot, "📧 Админ отправил финальное сообщение дня 15 вручную")
+    logger.info(f"Админ {user_id} отправил финальное сообщение дня 15 вручную")
+
+
+@dp.message(Command("final1"))
+async def handle_final1_command(message: Message):
+    """Админ команда: отправить финальное сообщение дня 16 №1 (10:00) вручную"""
+    user_id = message.from_user.id
     
-    # Отчёт в мониторинговый чат
-    await monitor.send_admin_report(bot, "📧 Админ отправил финальное сообщение 1 вручную")
-    logger.info(f"Админ {user_id} отправил финальное сообщение 1 вручную")
+    if not is_admin(user_id):
+        await message.answer("❌ У вас нет прав для выполнения этой команды.")
+        return
+    
+    await message.answer("📤 Отправляю финальное сообщение дня 16 №1...")
+    
+    from final_messages_handlers import send_final_message_to_all
+    await send_final_message_to_all(bot, course_day=16, message_number=1)
+    
+    await message.answer("✅ Финальное сообщение дня 16 №1 отправлено!")
+    await monitor.send_admin_report(bot, "📧 Админ отправил финальное сообщение дня 16 №1 вручную")
+    logger.info(f"Админ {user_id} отправил финальное сообщение дня 16 №1 вручную")
 
 
 @dp.message(Command("final2"))
 async def handle_final2_command(message: Message):
-    """Админ команда: отправить финальное сообщение 2 вручную"""
+    """Админ команда: отправить финальное сообщение дня 16 №2 (15:00) вручную"""
     user_id = message.from_user.id
     
     if not is_admin(user_id):
         await message.answer("❌ У вас нет прав для выполнения этой команды.")
         return
     
-    await message.answer("📤 Отправляю финальное сообщение 2...")
+    await message.answer("📤 Отправляю финальное сообщение дня 16 №2...")
     
     from final_messages_handlers import send_final_message_to_all
-    await send_final_message_to_all(bot, message_number=2)
+    await send_final_message_to_all(bot, course_day=16, message_number=2)
     
-    await message.answer("✅ Финальное сообщение 2 отправлено!")
-    
-    # Отчёт в мониторинговый чат
-    await monitor.send_admin_report(bot, "📧 Админ отправил финальное сообщение 2 вручную")
-    logger.info(f"Админ {user_id} отправил финальное сообщение 2 вручную")
+    await message.answer("✅ Финальное сообщение дня 16 №2 отправлено!")
+    await monitor.send_admin_report(bot, "📧 Админ отправил финальное сообщение дня 16 №2 вручную")
+    logger.info(f"Админ {user_id} отправил финальное сообщение дня 16 №2 вручную")
 
 
 @dp.message(Command("final3"))
 async def handle_final3_command(message: Message):
-    """Админ команда: отправить финальное сообщение 3 вручную"""
+    """Админ команда: отправить финальное сообщение дня 16 №3 (15:55) вручную"""
     user_id = message.from_user.id
     
     if not is_admin(user_id):
         await message.answer("❌ У вас нет прав для выполнения этой команды.")
         return
     
-    await message.answer("📤 Отправляю финальное сообщение 3...")
+    await message.answer("📤 Отправляю финальное сообщение дня 16 №3...")
     
     from final_messages_handlers import send_final_message_to_all
-    await send_final_message_to_all(bot, message_number=3)
+    await send_final_message_to_all(bot, course_day=16, message_number=3)
     
-    await message.answer("✅ Финальное сообщение 3 отправлено!")
-    
-    # Отчёт в мониторинговый чат
-    await monitor.send_admin_report(bot, "📧 Админ отправил финальное сообщение 3 вручную")
-    logger.info(f"Админ {user_id} отправил финальное сообщение 3 вручную")
+    await message.answer("✅ Финальное сообщение дня 16 №3 отправлено!")
+    await monitor.send_admin_report(bot, "📧 Админ отправил финальное сообщение дня 16 №3 вручную")
+    logger.info(f"Админ {user_id} отправил финальное сообщение дня 16 №3 вручную")
 
 
 @dp.message(Command("fix26"))
@@ -1373,10 +1386,10 @@ async def scheduled_daily_summary():
     logger.info("📊 Статистика сброшена для нового дня")
 
 
-async def scheduled_final_message_1():
-    """Финальное сообщение 1 в 10:00 (15 день)"""
+async def scheduled_final_message_day15():
+    """День 15: одно финальное сообщение в 10:00"""
     logger.info("=" * 50)
-    logger.info("⏰ ПЛАНИРОВЩИК: Финальное сообщение 1 (10:00)")
+    logger.info("⏰ ПЛАНИРОВЩИК: Финальное сообщение дня 15 (10:00)")
     logger.info("=" * 50)
     
     from database import get_global_course_state
@@ -1386,26 +1399,51 @@ async def scheduled_final_message_1():
         logger.warning("❌ course_state не найден в БД!")
         return
     
-    # Проверяем, активен ли курс
     if not course_state.get("is_active"):
-        logger.info("⏸️ Курс не активен (/razgon_stop), финальное сообщение 1 пропущено")
+        logger.info("⏸️ Курс не активен (/razgon_stop), финальное сообщение дня 15 пропущено")
         return
     
     current_day = course_state.get("current_day", 0)
+    if current_day != 15:
+        logger.info(f"⏸️ Текущий день {current_day}, сообщение дня 15 не отправляется (ждём день 15)")
+        return
     
-    # Проверяем, что это 15-й день (после 14 задания)
-    if current_day >= 15:
-        logger.info(f"📤 Отправляем финальное сообщение 1 (день {current_day})...")
-        await send_final_message_to_all(bot, message_number=1)
-        logger.info("✅ Финальное сообщение 1 отправлено")
-    else:
-        logger.info(f"⏸️ Текущий день {current_day}, финальные сообщения не отправляются")
+    logger.info(f"📤 Отправляем финальное сообщение дня 15 (10:00)...")
+    await send_final_message_to_all(bot, course_day=15, message_number=1)
+    logger.info("✅ Финальное сообщение дня 15 отправлено")
+
+
+async def scheduled_final_message_1():
+    """День 16: финальное сообщение 1 в 10:00"""
+    logger.info("=" * 50)
+    logger.info("⏰ ПЛАНИРОВЩИК: Финальное сообщение дня 16 №1 (10:00)")
+    logger.info("=" * 50)
+    
+    from database import get_global_course_state
+    course_state = await get_global_course_state()
+    
+    if not course_state:
+        logger.warning("❌ course_state не найден в БД!")
+        return
+    
+    if not course_state.get("is_active"):
+        logger.info("⏸️ Курс не активен (/razgon_stop), финальное сообщение 1 дня 16 пропущено")
+        return
+    
+    current_day = course_state.get("current_day", 0)
+    if current_day < 16:
+        logger.info(f"⏸️ Текущий день {current_day}, финальные сообщения дня 16 не отправляются")
+        return
+    
+    logger.info(f"📤 Отправляем финальное сообщение дня 16 №1 (10:00)...")
+    await send_final_message_to_all(bot, course_day=16, message_number=1)
+    logger.info("✅ Финальное сообщение дня 16 №1 отправлено")
 
 
 async def scheduled_final_message_2():
-    """Финальное сообщение 2 в 15:00 (15 день)"""
+    """День 16: финальное сообщение 2 в 15:00"""
     logger.info("=" * 50)
-    logger.info("⏰ ПЛАНИРОВЩИК: Финальное сообщение 2 (15:00)")
+    logger.info("⏰ ПЛАНИРОВЩИК: Финальное сообщение дня 16 №2 (15:00)")
     logger.info("=" * 50)
     
     from database import get_global_course_state
@@ -1415,25 +1453,24 @@ async def scheduled_final_message_2():
         logger.warning("❌ course_state не найден в БД!")
         return
     
-    # Проверяем, активен ли курс
     if not course_state.get("is_active"):
-        logger.info("⏸️ Курс не активен (/razgon_stop), финальное сообщение 2 пропущено")
+        logger.info("⏸️ Курс не активен (/razgon_stop), финальное сообщение 2 дня 16 пропущено")
         return
     
     current_day = course_state.get("current_day", 0)
+    if current_day < 16:
+        logger.info(f"⏸️ Текущий день {current_day}, финальные сообщения дня 16 не отправляются")
+        return
     
-    if current_day >= 15:
-        logger.info(f"📤 Отправляем финальное сообщение 2 (день {current_day})...")
-        await send_final_message_to_all(bot, message_number=2)
-        logger.info("✅ Финальное сообщение 2 отправлено")
-    else:
-        logger.info(f"⏸️ Текущий день {current_day}, финальные сообщения не отправляются")
+    logger.info(f"📤 Отправляем финальное сообщение дня 16 №2 (15:00)...")
+    await send_final_message_to_all(bot, course_day=16, message_number=2)
+    logger.info("✅ Финальное сообщение дня 16 №2 отправлено")
 
 
 async def scheduled_final_message_3():
-    """Финальное сообщение 3 в 15:55 (15 день)"""
+    """День 16: финальное сообщение 3 в 15:55"""
     logger.info("=" * 50)
-    logger.info("⏰ ПЛАНИРОВЩИК: Финальное сообщение 3 (15:55)")
+    logger.info("⏰ ПЛАНИРОВЩИК: Финальное сообщение дня 16 №3 (15:55)")
     logger.info("=" * 50)
     
     from database import get_global_course_state
@@ -1443,19 +1480,18 @@ async def scheduled_final_message_3():
         logger.warning("❌ course_state не найден в БД!")
         return
     
-    # Проверяем, активен ли курс
     if not course_state.get("is_active"):
-        logger.info("⏸️ Курс не активен (/razgon_stop), финальное сообщение 3 пропущено")
+        logger.info("⏸️ Курс не активен (/razgon_stop), финальное сообщение 3 дня 16 пропущено")
         return
     
     current_day = course_state.get("current_day", 0)
+    if current_day < 16:
+        logger.info(f"⏸️ Текущий день {current_day}, финальные сообщения дня 16 не отправляются")
+        return
     
-    if current_day >= 15:
-        logger.info(f"📤 Отправляем финальное сообщение 3 (день {current_day})...")
-        await send_final_message_to_all(bot, message_number=3)
-        logger.info("✅ Финальное сообщение 3 отправлено")
-    else:
-        logger.info(f"⏸️ Текущий день {current_day}, финальные сообщения не отправляются")
+    logger.info(f"📤 Отправляем финальное сообщение дня 16 №3 (15:55)...")
+    await send_final_message_to_all(bot, course_day=16, message_number=3)
+    logger.info("✅ Финальное сообщение дня 16 №3 отправлено")
 
 
 def setup_scheduler():
@@ -1510,30 +1546,36 @@ def setup_scheduler():
     )
     logger.info("Планировщик: ежедневная сводка в 23:59")
     
-    # Финальные сообщения 15 дня
-    # Сообщение 1 - 10:00 (отправляется в тот же час, что и обычные задания)
+    # Финальные сообщения: день 15 (одно) и день 16 (три)
+    # День 15: одно сообщение в 10:00
+    scheduler.add_job(
+        scheduled_final_message_day15,
+        CronTrigger(hour=10, minute=0, timezone=config.TIMEZONE),
+        id="final_message_day15"
+    )
+    logger.info("Планировщик: финальное сообщение дня 15 в 10:00")
+    
+    # День 16: три сообщения в 10:00, 15:00, 15:55
     scheduler.add_job(
         scheduled_final_message_1,
         CronTrigger(hour=10, minute=0, timezone=config.TIMEZONE),
-        id="final_message_1"
+        id="final_message_16_1"
     )
-    logger.info("Планировщик: финальное сообщение 1 в 10:00")
+    logger.info("Планировщик: финальное сообщение дня 16 №1 в 10:00")
     
-    # Сообщение 2 - 15:00
     scheduler.add_job(
         scheduled_final_message_2,
         CronTrigger(hour=15, minute=0, timezone=config.TIMEZONE),
-        id="final_message_2"
+        id="final_message_16_2"
     )
-    logger.info("Планировщик: финальное сообщение 2 в 15:00")
+    logger.info("Планировщик: финальное сообщение дня 16 №2 в 15:00")
     
-    # Сообщение 3 - 15:55
     scheduler.add_job(
         scheduled_final_message_3,
         CronTrigger(hour=15, minute=55, timezone=config.TIMEZONE),
-        id="final_message_3"
+        id="final_message_16_3"
     )
-    logger.info("Планировщик: финальное сообщение 3 в 15:55")
+    logger.info("Планировщик: финальное сообщение дня 16 №3 в 15:55")
     
     scheduler.start()
     logger.info("Планировщик запущен!")
